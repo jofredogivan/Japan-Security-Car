@@ -1,4 +1,4 @@
-// db.js (Código completo e atualizado - Lógica de KM, Manutenção e CRUD)
+// db.js (Código completo e corrigido - Lógica de KM, Manutenção e CRUD)
 
 const DB_NAME = 'JapanSecurityCarDB';
 const DB_VERSION = 1;
@@ -104,35 +104,35 @@ async function executeTransaction(storeName, mode, callback) {
 /**
  * Adiciona um novo veículo ou atualiza um existente (Update/Put).
  */
-export async function saveVeiculo(veiculo) {
+async function saveVeiculo(veiculo) { // REMOVIDO 'export'
     return executeTransaction(STORE_VEICULOS, 'readwrite', (store) => store.put(veiculo));
 }
 
 /**
  * Busca todos os veículos cadastrados.
  */
-export async function getAllVeiculos() {
+async function getAllVeiculos() { // REMOVIDO 'export'
     return executeTransaction(STORE_VEICULOS, 'readonly', (store) => store.getAll());
 }
 
 /**
  * Busca um veículo específico pela placa.
  */
-export async function getVeiculoByPlaca(placa) {
+async function getVeiculoByPlaca(placa) { // REMOVIDO 'export'
     return executeTransaction(STORE_VEICULOS, 'readonly', (store) => store.get(placa));
 }
 
 /**
  * Exclui um veículo pela placa.
  */
-export async function deleteVeiculo(placa) {
+async function deleteVeiculo(placa) { // REMOVIDO 'export'
     return executeTransaction(STORE_VEICULOS, 'readwrite', (store) => store.delete(placa));
 }
 
 /**
  * Atualiza o KM atual do veículo (e opcionalmente a KM da última troca de óleo).
  */
-export async function updateVeiculoKm(placa, novoKm, kmUltimaTroca = null) {
+async function updateVeiculoKm(placa, novoKm, kmUltimaTroca = null) { // REMOVIDO 'export'
     const veiculo = await getVeiculoByPlaca(placa);
     if (!veiculo) {
         throw new Error(`Veículo com placa ${placa} não encontrado.`);
@@ -150,6 +150,7 @@ export async function updateVeiculoKm(placa, novoKm, kmUltimaTroca = null) {
             tipo: "Troca de Óleo",
             proximo_km_alerta: novoKm + KM_INTERVALO_OLEO
         };
+        // Chama a função interna
         await saveManutencao(manutencao);
     }
     
@@ -163,7 +164,7 @@ export async function updateVeiculoKm(placa, novoKm, kmUltimaTroca = null) {
 /**
  * Adiciona uma nova movimentação (Saída/Entrada).
  */
-export async function saveMovimentacao(movimentacao) {
+async function saveMovimentacao(movimentacao) { // REMOVIDO 'export'
     // 1. Salva a movimentação no Object Store
     const id = await executeTransaction(STORE_MOVIMENTACOES, 'readwrite', (store) => store.add(movimentacao));
     
@@ -183,7 +184,7 @@ export async function saveMovimentacao(movimentacao) {
 /**
  * Busca todas as movimentações.
  */
-export async function getAllMovimentacoes() {
+async function getAllMovimentacoes() { // REMOVIDO 'export'
     return executeTransaction(STORE_MOVIMENTACOES, 'readonly', (store) => store.getAll());
 }
 
@@ -194,7 +195,7 @@ export async function getAllMovimentacoes() {
 /**
  * Adiciona um novo registro de manutenção.
  */
-export async function saveManutencao(manutencao) {
+async function saveManutencao(manutencao) { // REMOVIDO 'export'
     return executeTransaction(STORE_MANUTENCOES, 'readwrite', (store) => store.add(manutencao));
 }
 
@@ -212,5 +213,6 @@ export {
     deleteVeiculo,
     updateVeiculoKm, 
     saveMovimentacao,
-    getAllMovimentacoes
+    getAllMovimentacoes,
+    saveManutencao // Adicionado para completude, embora não usado diretamente no app.js
 };
