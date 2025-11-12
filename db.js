@@ -1,4 +1,4 @@
-// db.js (Código completo e corrigido - Lógica de KM, Manutenção e CRUD)
+// db.js (Código completo e finalizado com função de exclusão de movimentação)
 
 const DB_NAME = 'JapanSecurityCarDB';
 const DB_VERSION = 1;
@@ -101,38 +101,23 @@ async function executeTransaction(storeName, mode, callback) {
 // OPERAÇÕES CRUD PARA VEÍCULOS
 // -------------------------------------------------------------
 
-/**
- * Adiciona um novo veículo ou atualiza um existente (Update/Put).
- */
-async function saveVeiculo(veiculo) { // REMOVIDO 'export'
+async function saveVeiculo(veiculo) {
     return executeTransaction(STORE_VEICULOS, 'readwrite', (store) => store.put(veiculo));
 }
 
-/**
- * Busca todos os veículos cadastrados.
- */
-async function getAllVeiculos() { // REMOVIDO 'export'
+async function getAllVeiculos() {
     return executeTransaction(STORE_VEICULOS, 'readonly', (store) => store.getAll());
 }
 
-/**
- * Busca um veículo específico pela placa.
- */
-async function getVeiculoByPlaca(placa) { // REMOVIDO 'export'
+async function getVeiculoByPlaca(placa) {
     return executeTransaction(STORE_VEICULOS, 'readonly', (store) => store.get(placa));
 }
 
-/**
- * Exclui um veículo pela placa.
- */
-async function deleteVeiculo(placa) { // REMOVIDO 'export'
+async function deleteVeiculo(placa) {
     return executeTransaction(STORE_VEICULOS, 'readwrite', (store) => store.delete(placa));
 }
 
-/**
- * Atualiza o KM atual do veículo (e opcionalmente a KM da última troca de óleo).
- */
-async function updateVeiculoKm(placa, novoKm, kmUltimaTroca = null) { // REMOVIDO 'export'
+async function updateVeiculoKm(placa, novoKm, kmUltimaTroca = null) {
     const veiculo = await getVeiculoByPlaca(placa);
     if (!veiculo) {
         throw new Error(`Veículo com placa ${placa} não encontrado.`);
@@ -142,7 +127,6 @@ async function updateVeiculoKm(placa, novoKm, kmUltimaTroca = null) { // REMOVID
     if (kmUltimaTroca !== null) {
         veiculo.km_ultima_troca = kmUltimaTroca;
         
-        // Registra a troca na store de Manutenções
         const manutencao = {
             placa_veiculo: placa,
             data_troca: new Date().toISOString(),
@@ -150,52 +134,45 @@ async function updateVeiculoKm(placa, novoKm, kmUltimaTroca = null) { // REMOVID
             tipo: "Troca de Óleo",
             proximo_km_alerta: novoKm + KM_INTERVALO_OLEO
         };
-        // Chama a função interna
         await saveManutencao(manutencao);
     }
     
-    return saveVeiculo(veiculo); // Salva o veículo atualizado
+    return saveVeiculo(veiculo); 
 }
 
 // -------------------------------------------------------------
 // OPERAÇÕES CRUD PARA MOVIMENTAÇÕES
 // -------------------------------------------------------------
 
-/**
- * Adiciona uma nova movimentação (Saída/Entrada).
- */
-async function saveMovimentacao(movimentacao) { // REMOVIDO 'export'
-    // 1. Salva a movimentação no Object Store
+async function saveMovimentacao(movimentacao) { 
     const id = await executeTransaction(STORE_MOVIMENTACOES, 'readwrite', (store) => store.add(movimentacao));
     
-    // 2. Lógica de atualização de KM APENAS na ENTRADA
     if (movimentacao.tipo === 'entrada' && movimentacao.km_atual) {
-        
         const placa = movimentacao.placa_veiculo;
         const novoKm = movimentacao.km_atual;
 
-        // Atualiza apenas o KM atual. O alerta é tratado no app.js
         await updateVeiculoKm(placa, novoKm, null); 
     }
 
     return id;
 }
 
-/**
- * Busca todas as movimentações.
- */
-async function getAllMovimentacoes() { // REMOVIDO 'export'
+async function getAllMovimentacoes() { 
     return executeTransaction(STORE_MOVIMENTACOES, 'readonly', (store) => store.getAll());
+}
+
+/**
+ * NOVO: Exclui uma movimentação pelo ID.
+ */
+async function deleteMovimentacaoById(id) { 
+    return executeTransaction(STORE_MOVIMENTACOES, 'readwrite', (store) => store.delete(id));
 }
 
 // -------------------------------------------------------------
 // OPERAÇÕES CRUD PARA MANUTENÇÕES
 // -------------------------------------------------------------
 
-/**
- * Adiciona um novo registro de manutenção.
- */
-async function saveManutencao(manutencao) { // REMOVIDO 'export'
+async function saveManutencao(manutencao) { 
     return executeTransaction(STORE_MANUTENCOES, 'readwrite', (store) => store.add(manutencao));
 }
 
@@ -214,5 +191,6 @@ export {
     updateVeiculoKm, 
     saveMovimentacao,
     getAllMovimentacoes,
-    saveManutencao // Adicionado para completude, embora não usado diretamente no app.js
+    deleteMovimentacaoById, // NOVO: Exportação para exclusão de movimentação
+    saveManutencao
 };
