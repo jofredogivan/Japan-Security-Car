@@ -1,24 +1,24 @@
 /*
  * style.css
- * Baseado no estilo do APK anterior: Font 'Inter' e Cor Primária Vermelho #ef4444
+ * Baseado no design do APK: Fundo Escuro, Vermelho Vibrante e Borda Vermelha no Card.
  */
 
 /* --- 1. IMPORTAÇÃO E VARIÁVEIS DE COR --- */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 
 :root {
-    /* Mapeando as cores do APK antigo para as variáveis do PWA */
-    --color-primary-solid: #ef4444; /* Vermelho principal do APK */
-    --color-primary-hover: #dc2626; /* Vermelho escuro para hover */
+    /* Cores ajustadas para o contraste e vermelho da imagem */
+    --color-primary-solid: #FF0000; /* Vermelho vivo, usado nos botões principais e bordas */
+    --color-primary-hover: #CC0000; /* Vermelho escuro para hover */
     --color-secondary-solid: #9ca3af; /* Cinza médio para textos secundários */
-    --color-background: #1f2937; /* Fundo escuro */
-    --color-card-bg: #374151; /* Fundo do Card (um pouco mais claro que o background) */
+    --color-background: #111111; /* Fundo muito escuro (quase preto) */
+    --color-card-bg: #1e1e1e; /* Fundo do Card (um pouco mais claro que o background) */
     --color-text-light: #f3f4f6; /* Texto claro */
-    --color-text-dark: #1f2937; /* Texto escuro (para botões amarelos/claros) */
-    --color-success: #22c55e; /* Verde */
-    --color-warning: #eab308; /* Amarelo */
-    --color-info: #3b82f6; /* Azul */
-    --color-danger: #8B0000; /* Vermelho de exclusão */
+    --color-text-dark: #1f2937; /* Texto escuro */
+    --color-success: #22c55e; /* Verde (para status OK) */
+    --color-danger: #8B0000; /* Vermelho de exclusão secundário */
+    --color-back-btn: #6b7280; /* Cinza do botão Voltar */
+    --color-back-btn-hover: #52575f;
 }
 
 /* --- 2. BASE DO CORPO E ESTRUTURA --- */
@@ -32,7 +32,7 @@ body {
     font-family: 'Inter', sans-serif;
     background-color: var(--color-background);
     color: var(--color-text-light);
-    padding: 0 0 70px 0; /* Espaço para a navegação fixa */
+    padding: 0 0 70px 0; 
     min-height: 100vh;
 }
 
@@ -41,10 +41,22 @@ h1, h2, h3 {
     margin-bottom: 10px;
 }
 
+/* Container do APK: Centralizado e com bordas arredondadas e contorno vermelho */
 .container {
     padding: 20px;
     max-width: 600px;
-    margin: 0 auto;
+    margin: 20px auto; /* Adiciona margem superior para afastar do topo */
+    background-color: var(--color-background); /* Garante que o fundo do container seja o mesmo */
+}
+
+/* Estilo do Card/Formulário para replicar o bloco central do APK */
+.page {
+    background-color: var(--color-card-bg);
+    padding: 25px;
+    border-radius: 20px; /* Borda bem arredondada */
+    border: 2px solid var(--color-primary-solid); /* Contorno vermelho vivo */
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.4); /* Sombra vermelha sutil */
+    margin-bottom: 20px;
 }
 
 .hidden {
@@ -70,13 +82,13 @@ input[type="datetime-local"],
 select,
 textarea {
     width: 100%;
-    padding: 10px;
+    padding: 12px;
     border: 1px solid var(--color-secondary-solid);
-    border-radius: 6px;
-    background-color: var(--color-card-bg);
+    border-radius: 8px;
+    background-color: var(--color-background); /* Input com fundo mais escuro */
     color: var(--color-text-light);
     font-size: 16px;
-    appearance: none; /* Remove estilo nativo de select */
+    appearance: none;
 }
 
 input:focus,
@@ -84,38 +96,58 @@ select:focus,
 textarea:focus {
     border-color: var(--color-primary-solid);
     outline: none;
-    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.5);
+    box-shadow: 0 0 0 2px rgba(255, 0, 0, 0.5);
 }
 
-/* --- 4. BOTÕES GERAIS (Mapeando o .btn-red como o .btn principal) --- */
+/* --- 4. BOTÕES GERAIS (Mapeando o Vermelho Vivo) --- */
 .btn {
-    padding: 10px 15px;
+    padding: 12px 15px;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px; /* Mais arredondado */
     font-weight: 600;
     cursor: pointer;
     text-align: center;
     transition: background-color 0.2s, border-color 0.2s, color 0.2s;
     font-size: 1rem;
     width: 100%;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 .btn-primary {
+    /* Botão Salvar Veículo (Vermelho Vivo) */
     background-color: var(--color-primary-solid);
-    color: white;
+    color: var(--color-text-light);
 }
 .btn-primary:hover {
     background-color: var(--color-primary-hover);
 }
 
 .btn-secondary {
+    /* Botão Excluir Selecionado (Vermelho com Texto Vermelho) */
     background-color: var(--color-card-bg);
-    color: var(--color-text-light);
-    border: 1px solid var(--color-secondary-solid);
+    color: var(--color-primary-solid);
+    border: 1px solid var(--color-primary-solid);
 }
 .btn-secondary:hover {
-    background-color: var(--color-secondary-solid);
+    background-color: var(--color-primary-solid);
+    color: var(--color-text-light);
 }
+
+.btn-danger {
+    /* Botão Excluir Veículo na lista (corrigido para o vermelho escuro) */
+    background-color: var(--color-danger) !important;
+    color: var(--color-text-light);
+}
+
+.btn-back {
+    /* Botão Voltar (Cinza Escuro) */
+    background-color: var(--color-back-btn);
+    color: var(--color-text-light);
+}
+.btn-back:hover {
+    background-color: var(--color-back-btn-hover);
+}
+
 
 /* --- 5. CHECKLIST STYLES --- */
 #mov-checklist-container {
@@ -134,6 +166,7 @@ textarea:focus {
 }
 
 .checklist-item input[type="checkbox"] {
+    /*... (mantido, pois funciona bem em contraste com o fundo escuro) ...*/
     appearance: none;
     width: 18px;
     height: 18px;
@@ -145,23 +178,9 @@ textarea:focus {
     place-content: center;
 }
 
-.checklist-item input[type="checkbox"]::before {
-    content: "";
-    width: 10px;
-    height: 10px;
-    transform: scale(0);
-    transition: 120ms transform ease-in-out;
-    box-shadow: inset 1em 1em var(--color-text-light);
-    border-radius: 2px;
-}
-
 .checklist-item input[type="checkbox"]:checked {
     border-color: var(--color-primary-solid);
     background-color: var(--color-primary-solid);
-}
-
-.checklist-item input[type="checkbox"]:checked::before {
-    transform: scale(1);
 }
 
 .checklist-item label {
@@ -169,7 +188,6 @@ textarea:focus {
     color: var(--color-text-light);
     cursor: pointer;
 }
-
 
 /* --- 6. LISTAGEM (DASHBOARD/HISTÓRICO) --- */
 #movimentacoes-list, 
@@ -181,11 +199,11 @@ textarea:focus {
 }
 
 .card {
-    background-color: var(--color-card-bg);
+    background-color: var(--color-background); /* Fundo do card na lista é mais escuro */
     padding: 15px;
     border-radius: 8px;
-    border-left: 8px solid var(--color-primary-solid);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-left: 8px solid var(--color-primary-solid); /* Borda esquerda Vermelha */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 .card-placeholder {
@@ -194,18 +212,14 @@ textarea:focus {
     color: var(--color-secondary-solid);
 }
 
-.card p {
-    margin: 5px 0;
-}
-
 /* --- 7. NAVEGAÇÃO E FAB --- */
 nav {
     position: fixed;
     bottom: 0;
     left: 0;
     width: 100%;
-    background-color: var(--color-card-bg);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: var(--color-card-bg); /* Fundo da nav como a cor do Card */
+    border-top: 1px solid var(--color-secondary-solid);
     display: flex;
     justify-content: space-around;
     padding: 5px 0;
@@ -231,11 +245,6 @@ nav {
     color: var(--color-primary-solid);
 }
 
-.nav-btn i {
-    font-size: 1.2rem;
-    margin-bottom: 2px;
-}
-
 /* Floating Action Button (FAB) */
 #fab-action {
     position: fixed;
@@ -246,15 +255,10 @@ nav {
     border-radius: 50%;
     background-color: var(--color-primary-solid);
     color: white;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 10px rgba(255, 0, 0, 0.4);
     font-size: 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
     z-index: 1000;
     border: none;
-    transition: background-color 0.2s;
 }
 
 #fab-action:hover {
@@ -265,29 +269,9 @@ nav {
 #signature-pad {
     width: 100%;
     height: 150px;
-    border: 2px dashed var(--color-primary-solid); /* Borda primária */
-    background-color: var(--color-background); /* Fundo escuro */
+    border: 2px dashed var(--color-primary-solid); /* Borda Vermelha */
+    background-color: var(--color-background); 
     touch-action: none;
-    border-radius: 6px;
+    border-radius: 8px;
     margin-bottom: 10px;
 }
-
-/* --- 9. BOTÕES DE EXPORTAÇÃO E FILTRO --- */
-.action-group {
-    display: flex;
-    gap: 10px;
-    margin-top: 20px;
-}
-.action-group .btn {
-    width: 50%;
-}
-.action-group label {
-    width: 100%;
-}
-
-/* Botões coloridos adicionais, se necessário (do seu estilo antigo) */
-.btn-success { background-color: var(--color-success); color: var(--color-text-light); }
-.btn-success:hover { background-color: #15803d; }
-
-.btn-warning { background-color: var(--color-warning); color: var(--color-text-dark); }
-.btn-warning:hover { background-color: #d97706; }
