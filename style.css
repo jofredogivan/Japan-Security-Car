@@ -44,6 +44,8 @@ header h1 {
 .container {
     max-width: 800px;
     margin: 0 auto;
+    /* AJUSTE ESSENCIAL PARA MOBILE: Garante que o conteúdo não seja mais largo que a tela */
+    width: 100%; 
     padding: 0 10px;
 }
 
@@ -51,7 +53,7 @@ header h1 {
     padding: 20px 0;
 }
 
-/* Regra essencial para esconder as abas não selecionadas (O QUE PROVAVELMENTE ESTAVA DESCONFIGURANDO) */
+/* Regra essencial para esconder as abas não selecionadas */
 .hidden {
     display: none !important; 
 }
