@@ -150,7 +150,8 @@ async function loadVeiculosList() {
     veiculos.forEach(v => {
         const kmRodadoAposTroca = v.km_atual - v.km_ultima_troca;
         const precisaTrocar = kmRodadoAposTroca >= 10000;
-        const corAlerta = precisaTrocar ? 'var(--color-primary)' : 'green'; 
+        // Se precisar trocar, usa a cor principal, senão, verde
+        const corAlerta = precisaTrocar ? 'var(--color-primary-solid)' : '#4CAF50'; 
         
         const card = document.createElement('div');
         card.classList.add('card');
@@ -209,7 +210,7 @@ async function loadVeiculosForMovimentacao() {
     veiculos.forEach(v => {
         const option = document.createElement('option');
         option.value = v.placa;
-        option.textContent = `${v.placa} - ${v.modelo} (KM: ${v.km_atual})`;
+        option.textContent = `${v.placa} - ${v.modelo} (KM: ${v.km_atual.toLocaleString('pt-BR')})`;
         select.appendChild(option);
     });
 }
@@ -225,7 +226,47 @@ function setupMovimentacaoForm() {
     const selectPlacaMov = document.getElementById('mov-placa');
     const kmInputMov = document.getElementById('mov-km-atual');
 
-    // Lógica para preencher o KM ao selecionar a placa
+    // -------------------------------------------------------------
+    // ⭐ NOVO CÓDIGO: OTIMIZAÇÃO E REDIMENSIONAMENTO DO CANVAS (DPR)
+    // -------------------------------------------------------------
+    function resizeCanvas() {
+        // Obtém o Device Pixel Ratio (DPR) para alta resolução
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        
+        // Salva o conteúdo desenhado (se houver)
+        const oldData = ctx.getImageData(0, 0, canvas.width, canvas.height); 
+
+        // Define as dimensões internas do Canvas em alta resolução
+        canvas.width = canvas.offsetWidth * ratio;
+        canvas.height = canvas.offsetHeight * ratio;
+        
+        // Reduz a escala da área de desenho de volta ao tamanho normal, mantendo a resolução
+        ctx.scale(ratio, ratio);
+        
+        // Reconfigura o estilo de desenho após o redimensionamento/escala
+        ctx.strokeStyle = 'black'; 
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        // Se houver dados antigos, tenta redesenhá-los (opcional, mas bom para rotação de tela)
+        if (oldData) {
+            // Recarrega os dados, mas pode precisar de lógica mais complexa se o canvas tiver sido pintado
+            // Por simplicidade, em formulários de assinatura, apenas limpamos:
+            // ctx.putImageData(oldData, 0, 0); 
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+        } else {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+        }
+    }
+    
+    // Inicializa e monitora o redimensionamento
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas(); // Chama a primeira vez para inicializar o Canvas
+    
+    // -------------------------------------------------------------
+    // Lógica de Preencher o KM
+    // -------------------------------------------------------------
     selectPlacaMov.addEventListener('change', async (e) => {
         const placa = e.target.value;
         kmInputMov.value = ''; // Limpa o campo para a próxima seleção
@@ -240,15 +281,10 @@ function setupMovimentacaoForm() {
         }
     });
 
-    ctx.strokeStyle = 'black';
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    
-    function startPosition(e) { drawing = true; draw(e); }
-    function endPosition() { drawing = false; ctx.beginPath(); }
-    
-    function draw(e) {
-        if (!drawing) return;
+    // -------------------------------------------------------------
+    // Lógica de Desenho (Touch e Mouse)
+    // -------------------------------------------------------------
+    function getCursorPosition(e) {
         const rect = canvas.getBoundingClientRect();
         let x, y;
 
@@ -259,22 +295,44 @@ function setupMovimentacaoForm() {
             x = e.clientX - rect.left;
             y = e.clientY - rect.top;
         }
+        return { x, y };
+    }
 
-        ctx.lineTo(x, y);
-        ctx.stroke();
+    function startPosition(e) { 
+        e.preventDefault(); // Previne scroll/zoom em touch
+        drawing = true; 
+        const { x, y } = getCursorPosition(e);
         ctx.beginPath();
         ctx.moveTo(x, y);
+    }
+    
+    function endPosition() { 
+        drawing = false; 
+    }
+    
+    function draw(e) {
+        if (!drawing) return;
+        e.preventDefault(); // Previne scroll/zoom em touch
+        
+        const { x, y } = getCursorPosition(e);
+        
+        ctx.lineTo(x, y);
+        ctx.stroke();
     }
 
     canvas.addEventListener('mousedown', startPosition);
     canvas.addEventListener('mouseup', endPosition);
     canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('touchstart', startPosition, { passive: true });
-    canvas.addEventListener('touchend', endPosition);
-    canvas.addEventListener('touchmove', draw, { passive: true });
     
+    // Eventos Touch: com passive: false para impedir rolagem da página ao assinar
+    canvas.addEventListener('touchstart', startPosition, { passive: false });
+    canvas.addEventListener('touchend', endPosition, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    
+    // Botão Limpar
     clearButton.addEventListener('click', () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        resizeCanvas(); // Garante que o DPR e o estilo sejam refeitos
     });
 
     // --- SALVAR MOVIMENTAÇÃO (com Lógica de KM e Alerta) ---
@@ -293,8 +351,9 @@ function setupMovimentacaoForm() {
             return;
         }
 
-        const checklistItems = document.querySelectorAll('#mov-checklist input[type="checkbox"]:checked');
-        const checklist = Array.from(checklistItems).map(item => item.value);
+        // Corrigido para buscar no container com ID correto
+        const checklistItems = document.querySelectorAll('#mov-checklist-container input[type="checkbox"]:checked'); 
+        const checklist = Array.from(checklistItems).map(item => item.parentElement.querySelector('label').textContent); // Pega o texto do label
 
         const assinaturaDataUrl = canvas.toDataURL('image/png');
         
@@ -344,7 +403,8 @@ function setupMovimentacaoForm() {
             alert(`Movimentação de ${tipo.toUpperCase()} da placa ${placa} registrada com sucesso!`);
             
             form.reset();
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Limpa o canvas
+            resizeCanvas(); // Reseta o Canvas após a limpeza
             kmInputMov.value = ''; 
             loadVeiculosList(); 
             
@@ -399,7 +459,7 @@ function setupPesquisaKmRapida() {
             if (veiculo) {
                 const kmRodadoAposTroca = veiculo.km_atual - veiculo.km_ultima_troca;
                 const precisaTrocar = kmRodadoAposTroca >= 10000; 
-                const corAlerta = precisaTrocar ? 'var(--color-primary)' : 'green';
+                const corAlerta = precisaTrocar ? 'var(--color-primary-solid)' : '#4CAF50';
 
                 infoDiv.innerHTML = `
                     <p><strong>KM Atual:</strong> ${veiculo.km_atual.toLocaleString('pt-BR')}</p>
@@ -408,7 +468,7 @@ function setupPesquisaKmRapida() {
                 `;
             }
         } catch (error) {
-            infoDiv.innerHTML = `<p style="color: var(--color-primary);">Erro ao buscar informações.</p>`;
+            infoDiv.innerHTML = `<p style="color: var(--color-primary-solid);">Erro ao buscar informações.</p>`;
             console.error('Erro na pesquisa rápida de KM:', error);
         }
     });
@@ -465,13 +525,13 @@ async function buscarMovimentacoesAuditoria() {
         const isSaida = mov.tipo === 'saida';
         const card = document.createElement('div');
         card.classList.add('card');
-        card.style.borderLeftColor = isSaida ? 'var(--color-primary)' : 'yellowgreen'; 
+        card.style.borderLeftColor = isSaida ? 'var(--color-primary-solid)' : '#4CAF50'; 
         
         const dataLocal = new Date(mov.data_hora).toLocaleString('pt-BR'); 
 
         card.innerHTML = `
             <h3 style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="color: ${isSaida ? 'var(--color-primary)' : 'yellowgreen'};">
+                <span style="color: ${isSaida ? 'var(--color-primary-solid)' : '#4CAF50'};">
                     ${isSaida ? 'SAÍDA' : 'ENTRADA'} - ${mov.placa_veiculo}
                 </span>
                 <button class="btn delete-mov-btn" data-id="${mov.id}" style="width: auto; padding: 5px 10px; margin: 0; background-color: #8B0000; font-size: 12px;">Excluir</button>
@@ -482,9 +542,9 @@ async function buscarMovimentacoesAuditoria() {
             ${mov.km_atual ? `<p><strong>KM:</strong> ${mov.km_atual.toLocaleString('pt-BR')}</p>` : ''}
             <p><strong>Checklist:</strong> ${mov.checklist.join(', ') || 'Nenhum item marcado'}</p>
             <p><strong>Obs:</strong> ${mov.observacao || 'Nenhuma'}</p>
-            <details style="margin-top: 10px; color: var(--color-secondary);">
+            <details style="margin-top: 10px; color: var(--color-secondary-solid);">
                 <summary>Visualizar Assinatura</summary>
-                <img src="${mov.assinatura}" alt="Assinatura Digital" style="max-width: 100%; height: auto; background: white; margin-top: 5px; border-radius: 5px;">
+                <img src="${mov.assinatura}" alt="Assinatura Digital" style="max-width: 100%; height: auto; background: white; margin-top: 5px; border-radius: 5px; border: 1px solid #ddd;">
             </details>
         `;
         resultadosDiv.appendChild(card);
@@ -493,7 +553,7 @@ async function buscarMovimentacoesAuditoria() {
     // Adicionar listener de exclusão para o histórico APÓS a renderização:
     resultadosDiv.querySelectorAll('.delete-mov-btn').forEach(button => {
         button.addEventListener('click', async (e) => {
-            const id = parseInt(e.target.getAttribute('data-id'));
+            const id = parseInt(e.target.getAttribute('data-id'), 10);
             if (confirm(`Tem certeza que deseja EXCLUIR o registro de movimentação ID: ${id}?`)) {
                 await deleteMovimentacao(id); 
             }
@@ -571,7 +631,7 @@ function exportToPDF(data) {
         if (item.isSeparator) {
             // Linha Separadora (Cabeçalho do Veículo)
             tableRows.push([
-                { content: `VEÍCULO: ${item.placa}`, colSpan: 8, styles: { fillColor: [200, 200, 200], fontStyle: 'bold' } }
+                { content: `VEÍCULO: ${item.placa}`, colSpan: 8, styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } }
             ]);
         } else {
             // Linha de Movimentação
@@ -599,7 +659,7 @@ function exportToPDF(data) {
         startY: 25, 
         theme: 'striped',
         styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [255, 0, 0] } 
+        headStyles: { fillColor: [229, 57, 53] } // Corrigido para a cor primária (Vermelho)
     });
     
     doc.save("auditoria_jscar_organizada.pdf");
