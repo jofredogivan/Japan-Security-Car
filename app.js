@@ -1,4 +1,4 @@
-// app.js (Código completo e atualizado com correção de importação e exclusões)
+// app.js (Código completo, finalizado, com importações, agrupamento de PDF e exclusão de veículos ativa)
 
 import { 
     saveVeiculo, 
@@ -9,7 +9,7 @@ import {
     saveMovimentacao, 
     updateVeiculoKm,
     deleteMovimentacaoById,
-    getAllMovimentacoes // CORREÇÃO: Função de busca de histórico importada
+    getAllMovimentacoes 
 } from './db.js';
 
 let lastSearchResult = []; 
@@ -78,6 +78,7 @@ function setupNavigation() {
             if (targetPage) {
                 targetPage.classList.remove('hidden');
                 
+                // Recarrega a lista para mostrar/ocultar o botão de excluir
                 if (targetId === 'dashboard' || targetId === 'cadastro-veiculo') { 
                     loadVeiculosList(); 
                 } else if (targetId === 'movimentacao') {
@@ -132,15 +133,13 @@ async function loadVeiculosList() {
     
     const listElement = document.getElementById('movimentacoes-list');
     
-    // Determina se o painel de cadastro está visível para mostrar o botão de exclusão
-    // Verifica se a página que contém o elemento de cadastro está ativa
+    // Verifica se o elemento 'cadastro-veiculo' é a página atualmente visível (não tem a classe 'hidden')
     const isCadastroPage = !document.getElementById('cadastro-veiculo').classList.contains('hidden');
 
     listElement.innerHTML = ''; 
 
     if (veiculos.length === 0) {
         listElement.innerHTML = '<div class="card card-placeholder">Nenhuma viatura cadastrada.</div>';
-        // Se estiver na aba cadastro, talvez fosse melhor mostrar o formulário de cadastro, mas vamos manter o padrão.
         return;
     }
     
@@ -178,6 +177,7 @@ async function loadVeiculosList() {
                     try {
                         await deleteVeiculo(placa); 
                         alert(`Veículo ${placa} excluído com sucesso.`);
+                        // Recarrega todas as listas
                         loadVeiculosList(); 
                         loadVeiculosForMovimentacao(); 
                         loadVeiculosForHistorico(); 
@@ -371,7 +371,7 @@ function setupPesquisaKmRapida() {
             const veiculo = await getVeiculoByPlaca(placa);
             if (veiculo) {
                 const kmRodadoAposTroca = veiculo.km_atual - veiculo.km_ultima_troca;
-                const precisaTrocar = kmRodadoAposTroca >= 10000; // Variável corrigida para 'precisaTrocar'
+                const precisaTrocar = kmRodadoAposTroca >= 10000; 
                 const corAlerta = precisaTrocar ? 'var(--color-primary)' : 'green';
 
                 infoDiv.innerHTML = `
@@ -396,7 +396,7 @@ async function buscarMovimentacoesAuditoria() {
     
     resultadosDiv.innerHTML = '<div class="card card-placeholder">Buscando...</div>';
 
-    let movimentacoes = await getAllMovimentacoes(); // CORRIGIDO: Função agora importada e utilizável!
+    let movimentacoes = await getAllMovimentacoes();
 
     // 1. Filtrar
     movimentacoes = movimentacoes.filter(mov => {
@@ -440,7 +440,6 @@ async function buscarMovimentacoesAuditoria() {
         card.classList.add('card');
         card.style.borderLeftColor = isSaida ? 'var(--color-primary)' : 'yellowgreen'; 
         
-        // Data e Hora são exibidas juntas
         const dataLocal = new Date(mov.data_hora).toLocaleString('pt-BR'); 
 
         card.innerHTML = `
@@ -499,8 +498,9 @@ function setupHistorico() {
     document.getElementById('btn-download-excel').addEventListener('click', () => exportToExcel(lastSearchResult));
 }
 
-// --- FUNÇÕES DE EXPORTAÇÃO (Mantidas) ---
+// --- FUNÇÕES DE EXPORTAÇÃO ---
 
+// FUNÇÃO ATUALIZADA: Agrupa dados por veículo para o PDF.
 function exportToPDF(data) {
     if (typeof window.jspdf === 'undefined' || !data || data.length === 0) {
         alert('Faça uma busca antes de exportar! (Verifique se os CDNs do PDF estão carregados)');
@@ -510,40 +510,73 @@ function exportToPDF(data) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('landscape'); 
     
-    doc.setFontSize(14);
+    doc.setFontSize(16);
     doc.text("Relatório de Auditoria - Japan Security Car", 10, 10);
     doc.setFontSize(10);
     doc.text(`Data de Geração: ${new Date().toLocaleString('pt-BR')}`, 10, 15);
     
-    const tableColumn = ["ID", "Placa", "Tipo", "Motorista", "Data/Hora", "KM", "Checklist", "Observação"];
-    const tableRows = [];
+    // 1. AGRUPAR DADOS POR PLACA
+    const groupedData = data.reduce((acc, mov) => {
+        const placa = mov.placa_veiculo;
+        if (!acc[placa]) {
+            acc[placa] = [];
+        }
+        acc[placa].push(mov);
+        return acc;
+    }, {});
+    
+    let tableRows = [];
+    let finalData = [];
+    
+    // 2. ITERAR SOBRE OS GRUPOS E PREPARAR DADOS DE FORMA ORGANIZADA
+    for (const placa in groupedData) {
+        // Adiciona um separador visual no PDF
+        finalData.push({ isSeparator: true, placa: placa });
+        
+        // Adiciona todas as movimentações do veículo
+        groupedData[placa].forEach(mov => {
+            finalData.push(mov);
+        });
+    }
 
-    data.forEach(mov => {
-        const movData = [
-            mov.id,
-            mov.placa_veiculo,
-            mov.tipo.toUpperCase(),
-            mov.motorista,
-            new Date(mov.data_hora).toLocaleString('pt-BR'),
-            mov.km_atual ? mov.km_atual.toLocaleString('pt-BR') : '-',
-            mov.checklist.join(', '),
-            mov.observacao ? mov.observacao.substring(0, 30) + (mov.observacao.length > 30 ? '...' : '') : '-'
-        ];
-        tableRows.push(movData);
+    // 3. MONTAR AS LINHAS PARA O PDF ORGANIZADAS
+    finalData.forEach(item => {
+        if (item.isSeparator) {
+            // Linha Separadora (Cabeçalho do Veículo)
+            tableRows.push([
+                { content: `VEÍCULO: ${item.placa}`, colSpan: 8, styles: { fillColor: [200, 200, 200], fontStyle: 'bold' } }
+            ]);
+        } else {
+            // Linha de Movimentação
+            const movData = [
+                item.id,
+                item.placa_veiculo,
+                item.tipo.toUpperCase(),
+                item.motorista,
+                new Date(item.data_hora).toLocaleString('pt-BR'),
+                item.km_atual ? item.km_atual.toLocaleString('pt-BR') : '-',
+                item.checklist.join(', '),
+                item.observacao ? item.observacao.substring(0, 30) + (item.observacao.length > 30 ? '...' : '') : '-'
+            ];
+            tableRows.push(movData);
+        }
     });
+
+
+    const tableColumn = ["ID", "Placa", "Tipo", "Motorista", "Data/Hora", "KM", "Checklist", "Observação"];
 
     // @ts-ignore
     doc.autoTable({
         head: [tableColumn],
         body: tableRows,
-        startY: 20,
+        startY: 25, 
         theme: 'striped',
         styles: { fontSize: 8, cellPadding: 2 },
         headStyles: { fillColor: [255, 0, 0] } 
     });
     
-    doc.save("auditoria_jscar.pdf");
-    alert('PDF gerado com sucesso!');
+    doc.save("auditoria_jscar_organizada.pdf");
+    alert('PDF gerado com sucesso, organizado por veículo!');
 }
 
 function exportToExcel(data) {
