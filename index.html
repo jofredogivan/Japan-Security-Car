@@ -3,271 +3,210 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Japan Security Car - Controle de Frotas</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <meta name="theme-color" content="#E53935"/> 
+    <title>Japan Security Car - PWA</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    
     <link rel="manifest" href="manifest.json">
+    
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-    <header>
-        <h1>Japan Security Car 🚗</h1>
-    </header>
-
-    <main class="container">
+    <div class="container">
+        
+        <header class="app-header">
+            <h1>
+                <i class="fas fa-car-side"></i> 
+                Japan Security Car
+            </h1>
+        </header>
         
         <section id="dashboard" class="page">
-            <h2>Dashboard</h2>
-            <div id="movimentacoes-list" class="list-container">
-                <div class="card card-placeholder">Carregando informações das viaturas...</div>
+            <h2>Dashboard de Viaturas</h2>
+            <div id="movimentacoes-list">
+                <div class="card card-placeholder">Carregando viaturas...</div>
             </div>
         </section>
 
         <section id="cadastro-veiculo" class="page hidden">
-            <h2>Cadastro de Viatura</h2>
+            <h2>Cadastro de Veículos</h2>
             
             <form id="form-cadastro-veiculo">
-                <div class="form-group">
-                    <label for="veiculo-placa">Placa (Ex: AAA-1234):</label>
-                    <input type="text" id="veiculo-placa" placeholder="Placa do veículo" required maxlength="8">
-                </div>
+                <label for="veiculo-placa">Placa:</label>
+                <input type="text" id="veiculo-placa" required maxlength="7">
                 
-                <div class="form-group">
-                    <label for="veiculo-modelo">Modelo/Descrição:</label>
-                    <input type="text" id="veiculo-modelo" placeholder="Ex: FIAT UNO" required>
-                </div>
+                <label for="veiculo-modelo">Modelo/Descrição:</label>
+                <input type="text" id="veiculo-modelo" required>
                 
-                <div class="form-group">
-                    <label for="veiculo-km">KM Inicial/Atual:</label>
-                    <input type="number" id="veiculo-km" placeholder="Quilometragem" required min="1">
-                </div>
+                <label for="veiculo-km">KM Inicial:</label>
+                <input type="number" id="veiculo-km" min="0" required>
                 
-                <button type="submit" class="btn btn-primary">Cadastrar Viatura</button>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Salvar Veículo</button>
             </form>
 
-            <h3 style="margin-top: 30px;">Viatura Cadastradas (Clique no botão para EXCLUIR)</h3>
-            <div id="veiculos-list-cadastro" class="list-container">
-                <div id="veiculos-list-cadastro-content"></div> 
+            <h3 style="margin-top: 30px; text-align: center;">Excluir Veículo</h3>
+            
+            <div class="card" style="border-left: 8px solid var(--color-danger);">
+                <label for="select-veiculos-delete">Selecione para Excluir:</label>
+                <div id="delete-veiculo-list">
+                    <div class="card card-placeholder">Lista de exclusão carregada no Dashboard.</div>
+                </div>
             </div>
+
+            <button type="button" class="btn btn-back" onclick="document.querySelector('.nav-btn[data-target=\'dashboard\']').click();" style="margin-top: 20px;">
+                <i class="fas fa-arrow-left"></i> Voltar
+            </button>
         </section>
 
         <section id="movimentacao" class="page hidden">
             <h2>Registro de Movimentação</h2>
+            
             <form id="form-movimentacao">
-                
-                <div class="form-group">
-                    <label for="mov-placa">Viatura:</label>
-                    <select id="mov-placa" required>
-                        <option value="">-- Selecione a Viatura --</option>
-                        </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="mov-motorista">Motorista/Responsável:</label>
-                    <input type="text" id="mov-motorista" placeholder="Nome completo" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="mov-tipo">Tipo de Movimentação:</label>
-                    <select id="mov-tipo" required>
-                        <option value="saida">Saída</option>
-                        <option value="entrada">Entrada</option>
-                    </select>
-                </div>
+                <label for="mov-placa">Viatura (Placa):</label>
+                <select id="mov-placa" required>
+                    <option value="">Selecione a Viatura</option>
+                </select>
 
-                <div class="form-group">
-                    <label for="mov-data-hora">Data e Hora:</label>
-                    <input type="datetime-local" id="mov-data-hora" required>
-                </div>
+                <label for="mov-tipo">Tipo de Movimentação:</label>
+                <select id="mov-tipo" required>
+                    <option value="saida">Saída (Início do Serviço)</option>
+                    <option value="entrada">Entrada (Fim do Serviço)</option>
+                </select>
+
+                <label for="mov-data-hora">Data e Hora:</label>
+                <input type="datetime-local" id="mov-data-hora" required>
+
+                <label for="mov-motorista">Motorista/Responsável:</label>
+                <input type="text" id="mov-motorista" required>
+
+                <label for="mov-km-atual">KM Atual (Obrigatório na Entrada):</label>
+                <input type="number" id="mov-km-atual" min="0" placeholder="Apenas para Entrada" required>
                 
-                <div class="form-group">
-                    <label for="mov-km-atual">KM Atual (Obrigatório na Entrada):</label>
-                    <input type="number" id="mov-km-atual" placeholder="Preenchido automaticamente ao selecionar a placa" min="0">
-                </div>
-                
-                <h3>Checklist</h3>
+                <label>Checklist de Vistoria (Marque o que está OK):</label>
                 <div id="mov-checklist-container">
-                    <div class="checklist-item-card">
-                        <input type="checkbox" id="check-pneus" value="Pneus"> 
-                        <label for="check-pneus">Pneus (Calibragem/Avarias)</label>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="check-oleo">
+                        <label for="check-oleo">Óleo</label>
                     </div>
-                    <div class="checklist-item-card">
-                        <input type="checkbox" id="check-oleo" value="Óleo/Água"> 
-                        <label for="check-oleo">Nível Óleo/Água</label>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="check-agua">
+                        <label for="check-agua">Água</label>
                     </div>
-                    <div class="checklist-item-card">
-                        <input type="checkbox" id="check-documentos" value="Documentos"> 
-                        <label for="check-documentos">Documentos do veículo</label>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="check-pneus">
+                        <label for="check-pneus">Pneus</label>
                     </div>
-                    <div class="checklist-item-card">
-                        <input type="checkbox" id="check-limpeza" value="Limpeza"> 
-                        <label for="check-limpeza">Limpeza interna/externa</label>
-                    </div>
-                    <div class="checklist-item-card">
-                        <input type="checkbox" id="check-combustivel" value="Combustível"> 
+                    <div class="checklist-item">
+                        <input type="checkbox" id="check-combustivel">
                         <label for="check-combustivel">Combustível</label>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label for="mov-observacao">Observação:</label>
-                    <textarea id="mov-observacao" placeholder="Condição geral, ocorrências..."></textarea>
-                </div>
-                
-                <h3>Assinatura do Motorista/Responsável</h3>
-                <div class="signature-pad-container">
-                    <canvas id="signature-pad" width="300" height="150"></canvas> 
-                    <button type="button" id="clear-signature" class="btn btn-secondary">Limpar Assinatura</button>
-                </div>
-
-                <button type="submit" class="btn btn-primary" style="margin-top: 15px;">Registrar Movimentação</button>
-            </form>
-        </section>
-
-        <section id="atualizacao-km" class="page hidden">
-            <h2>Atualização de Quilometragem</h2>
-            <p>Use esta tela para registrar o KM atual das viaturas durante a vistoria noturna.</p>
-            
-            <form id="form-atualizacao-km">
-                <div class="form-group">
-                    <label for="update-placa">Selecione a Viatura:</label>
-                    <select id="update-placa" required>
-                        <option value="">-- Selecione --</option>
-                        </select>
-                </div>
-                
-                <div class="form-group" id="km-info-display" style="margin-top: 15px;">
+                    <div class="checklist-item">
+                        <input type="checkbox" id="check-documentos">
+                        <label for="check-documentos">Documentos</label>
                     </div>
-                
-                <div class="form-group">
-                    <label for="update-km-novo">Novo KM Atual:</label>
-                    <input type="number" id="update-km-novo" placeholder="KM registrado na vistoria" required min="1">
+                    <div class="checklist-item">
+                        <input type="checkbox" id="check-limpeza">
+                        <label for="check-limpeza">Limpeza</label>
+                    </div>
                 </div>
-                
-                <button type="submit" class="btn btn-primary">
-                    Registrar Novo KM
-                </button>
+
+                <label for="mov-observacao">Observações (Opcional):</label>
+                <textarea id="mov-observacao" rows="3"></textarea>
+
+                <label>Assinatura do Motorista:</label>
+                <canvas id="signature-pad" width="300" height="150"></canvas>
+                <button type="button" id="clear-signature" class="btn btn-secondary" style="color: var(--color-secondary-solid); border-color: var(--color-secondary-solid); margin-bottom: 20px;">Limpar Assinatura</button>
+
+                <button type="submit" class="btn btn-primary"><i class="fas fa-clipboard-list"></i> Registrar Movimentação</button>
             </form>
         </section>
 
         <section id="historico" class="page hidden">
             <h2>Histórico e Auditoria</h2>
             
-            <div class="filter-group">
-                <div class="form-group">
-                    <label for="filtro-veiculo">Filtrar por Viatura:</label>
-                    <select id="filtro-veiculo">
-                        <option value="">Todas</option>
-                        </select>
-                </div>
-                <div class="form-group">
-                    <label for="filtro-data-inicio">Data Inicial:</label>
-                    <input type="date" id="filtro-data-inicio">
-                </div>
-                <div class="form-group">
-                    <label for="filtro-data-fim">Data Final:</label>
-                    <input type="date" id="filtro-data-fim">
-                </div>
-                
-                <button id="btn-buscar-auditoria" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Buscar Histórico</button>
-                
-                <div class="download-buttons">
-                    <button id="btn-download-pdf" class="btn btn-secondary">Download PDF</button>
-                    <button id="btn-download-excel" class="btn btn-secondary">Download Excel</button>
-                </div>
+            <h3 style="margin-top: 10px;">Consulta Rápida de KM</h3>
+            <div class="card" style="border-left: 8px solid var(--color-secondary-solid); margin-bottom: 20px;">
+                <label for="select-veiculos-km">Viatura:</label>
+                <select id="select-veiculos-km">
+                    <option value="">Selecione a Placa</option>
+                </select>
+                <div id="veiculo-km-info" style="margin-top: 10px;">Selecione um veículo acima.</div>
             </div>
 
-            <div class="filter-group" style="margin-top: 20px;">
-                <h3>Consulta Rápida de KM</h3>
-                <div class="form-group">
-                    <label for="select-veiculos-km">Viatura:</label>
-                    <select id="select-veiculos-km">
-                        <option value="">-- Selecione --</option>
-                        </select>
-                </div>
-                <div id="veiculo-km-info" style="margin-top: 10px; font-size: 14px;">
-                    </div>
+            <h3 style="margin-top: 20px;">Filtro de Auditoria</h3>
+            <div class="card" style="border-left: 8px solid var(--color-primary-solid);">
+                <label for="filtro-veiculo">Viatura:</label>
+                <select id="filtro-veiculo">
+                    <option value="">Todas as Viaturas</option>
+                </select>
+
+                <label for="filtro-data-inicio" style="margin-top: 10px;">Data Início:</label>
+                <input type="date" id="filtro-data-inicio">
+
+                <label for="filtro-data-fim" style="margin-top: 10px;">Data Fim:</label>
+                <input type="date" id="filtro-data-fim">
+
+                <button id="btn-buscar-auditoria" class="btn btn-primary" style="margin-top: 15px;"><i class="fas fa-search"></i> Buscar Registros</button>
             </div>
 
-            <h3 style="margin-top: 30px;">Resultados da Auditoria</h3>
-            <div id="resultados-auditoria" class="list-container">
-                <div class="card card-placeholder">Faça uma busca para carregar o histórico de movimentações.</div>
+            <div class="action-group">
+                <button id="btn-download-pdf" class="btn btn-back"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
+                <button id="btn-download-excel" class="btn btn-back"><i class="fas fa-file-excel"></i> Exportar Excel</button>
+            </div>
+
+            <div id="resultados-auditoria" style="margin-top: 20px;">
+                <div class="card card-placeholder">Faça uma busca para exibir o histórico.</div>
             </div>
         </section>
 
-    </main>
+        <section id="atualizacao-km" class="page hidden">
+            <h2>Atualização de KM (Vistoria Noturna)</h2>
 
-    <div id="fab-action" class="fab" data-target="movimentacao">
-        <i class="fas fa-plus"></i>
+            <form id="form-atualizacao-km">
+                <label for="update-placa">Viatura (Placa):</label>
+                <select id="update-placa" required>
+                    <option value="">Selecione a Viatura</option>
+                </select>
+
+                <div id="km-info-display" style="margin-top: 10px; margin-bottom: 10px; color: var(--color-secondary-solid);">Selecione um veículo acima.</div>
+                
+                <label for="update-km-novo">Novo KM Atual:</label>
+                <input type="number" id="update-km-novo" min="0" required placeholder="Insira o KM atual (Deve ser maior ou igual ao KM anterior)">
+                
+                <button type="submit" class="btn btn-primary" style="margin-top: 15px;"><i class="fas fa-sync"></i> Atualizar KM</button>
+            </form>
+        </section>
+
     </div>
+    
+    <button id="fab-action" class="btn">
+        <i class="fas fa-plus"></i>
+    </button>
 
-    <nav class="nav-bar">
+    <nav>
         <button class="nav-btn active" data-target="dashboard">
             <i class="fas fa-home"></i>
             Dashboard
         </button>
         <button class="nav-btn" data-target="cadastro-veiculo">
-            <i class="fas fa-car-side"></i>
+            <i class="fas fa-car"></i>
             Viatura
-        </button>
-        <button class="nav-btn" data-target="movimentacao">
-            <i class="fas fa-exchange-alt"></i>
-            Movimento
-        </button>
-        <button class="nav-btn" data-target="atualizacao-km">
-            <i class="fas fa-tachometer-alt"></i>
-            KM
         </button>
         <button class="nav-btn" data-target="historico">
             <i class="fas fa-history"></i>
             Histórico
         </button>
+        <button class="nav-btn" data-target="atualizacao-km">
+            <i class="fas fa-tachometer-alt"></i>
+            KM Vistoria
+        </button>
     </nav>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-    <script type="module" src="db.js"></script>
+    <script src="db.js"></script>
     <script type="module" src="app.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const navButtons = document.querySelectorAll('.nav-btn');
-            const fabButton = document.getElementById('fab-action');
-            const pages = document.querySelectorAll('.page');
-            
-            const showPage = (targetId) => {
-                pages.forEach(page => {
-                    page.classList.add('hidden');
-                });
-                
-                const targetPage = document.getElementById(targetId);
-                if (targetPage) {
-                    targetPage.classList.remove('hidden');
-                    window.scrollTo(0, 0); 
-                }
-                
-                navButtons.forEach(btn => btn.classList.remove('active'));
-                const activeBtn = document.querySelector(`.nav-btn[data-target="${targetId}"]`);
-                if (activeBtn) {
-                    activeBtn.classList.add('active');
-                }
-            };
-
-            navButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    const targetPage = button.getAttribute('data-target');
-                    showPage(targetPage);
-                });
-            });
-
-            fabButton.addEventListener('click', () => {
-                const targetPage = fabButton.getAttribute('data-target');
-                showPage(targetPage);
-            });
-            
-            showPage('dashboard');
-        });
-    </script>
 </body>
 </html>
