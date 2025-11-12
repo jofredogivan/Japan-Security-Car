@@ -1,62 +1,63 @@
-// sw.js (Service Worker para cache offline)
+// sw.js (Service Worker Básico e Corrigido)
 
-const CACHE_NAME = 'jscar-cache-v1';
+const CACHE_NAME = 'jsc-cache-v2'; // Versão atualizada do cache
 const urlsToCache = [
-    '/',
-    '/index.html',
-    '/style.css',
-    '/app.js',
-    '/db.js',
-    '/manifest.json',
-    // Ícones do PWA (assumindo que você os criou)
-    '/images/icon-192x192.png',
-    '/images/icon-512x512.png',
-    // Bibliotecas CDN para que o download funcione offline (Opcional, mas recomendado)
-    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+    './', 
+    './index.html',
+    './app.js',
+    './db.js',
+    './style.css',
+    // Adicione outros arquivos estáticos e CDNs se necessário
 ];
 
-// Instalação do Service Worker
+// Instalação: Abre o cache e adiciona todos os arquivos
 self.addEventListener('install', (event) => {
-    console.log('[Service Worker] Instalando...');
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
-                console.log('[Service Worker] Cacheando arquivos essenciais.');
+                console.log('Service Worker instalado. Cache aberto.');
                 return cache.addAll(urlsToCache);
+            })
+            .catch(err => {
+                console.error('Falha ao adicionar URLs ao cache:', err);
             })
     );
 });
 
-// Ativação do Service Worker
+// Ativação: Limpa caches antigos
 self.addEventListener('activate', (event) => {
-    console.log('[Service Worker] Ativando e limpando caches antigos.');
     const cacheWhitelist = [CACHE_NAME];
     event.waitUntil(
-        caches.keys().then(cacheNames => {
+        caches.keys().then((cacheNames) => {
             return Promise.all(
-                cacheNames.map(cacheName => {
+                cacheNames.map((cacheName) => {
                     if (cacheWhitelist.indexOf(cacheName) === -1) {
+                        console.log('Deletando cache antigo:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
             );
         })
     );
+    // Garante que o service worker assuma o controle da página imediatamente
+    return self.clients.claim();
 });
 
-// Estratégia Cache-first (Primeiro cache, depois rede)
+// Fetch: Intercepta requisições e serve do cache primeiro
 self.addEventListener('fetch', (event) => {
     event.respondWith(
         caches.match(event.request)
             .then((response) => {
-                // Se o recurso está no cache, retorna a versão cacheadas
                 if (response) {
                     return response;
                 }
-                // Se não está no cache, faz a requisição normal na rede
-                return fetch(event.request);
+                
+                return fetch(event.request).catch(() => {
+                    // Fallback para navegação offline
+                    if (event.request.mode === 'navigate') {
+                        return caches.match('./index.html'); 
+                    }
+                });
             })
     );
 });
