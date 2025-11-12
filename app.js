@@ -150,8 +150,9 @@ async function loadVeiculosList() {
     veiculos.forEach(v => {
         const kmRodadoAposTroca = v.km_atual - v.km_ultima_troca;
         const precisaTrocar = kmRodadoAposTroca >= 10000;
-        // Se precisar trocar, usa a cor principal, senão, verde
-        const corAlerta = precisaTrocar ? 'var(--color-primary-solid)' : '#4CAF50'; 
+        
+        // ⭐ CORREÇÃO DE ESTILO: Usa var(--color-primary-solid) (vermelho) para Alerta e var(--color-success) (verde) para OK
+        const corAlerta = precisaTrocar ? 'var(--color-primary-solid)' : 'var(--color-success)'; 
         
         const card = document.createElement('div');
         card.classList.add('card');
@@ -227,15 +228,12 @@ function setupMovimentacaoForm() {
     const kmInputMov = document.getElementById('mov-km-atual');
 
     // -------------------------------------------------------------
-    // ⭐ NOVO CÓDIGO: OTIMIZAÇÃO E REDIMENSIONAMENTO DO CANVAS (DPR)
+    // OTIMIZAÇÃO E REDIMENSIONAMENTO DO CANVAS (DPR)
     // -------------------------------------------------------------
     function resizeCanvas() {
         // Obtém o Device Pixel Ratio (DPR) para alta resolução
         const ratio = Math.max(window.devicePixelRatio || 1, 1);
         
-        // Salva o conteúdo desenhado (se houver)
-        const oldData = ctx.getImageData(0, 0, canvas.width, canvas.height); 
-
         // Define as dimensões internas do Canvas em alta resolução
         canvas.width = canvas.offsetWidth * ratio;
         canvas.height = canvas.offsetHeight * ratio;
@@ -249,15 +247,8 @@ function setupMovimentacaoForm() {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
-        // Se houver dados antigos, tenta redesenhá-los (opcional, mas bom para rotação de tela)
-        if (oldData) {
-            // Recarrega os dados, mas pode precisar de lógica mais complexa se o canvas tiver sido pintado
-            // Por simplicidade, em formulários de assinatura, apenas limpamos:
-            // ctx.putImageData(oldData, 0, 0); 
-            ctx.clearRect(0, 0, canvas.width, canvas.height); 
-        } else {
-            ctx.clearRect(0, 0, canvas.width, canvas.height); 
-        }
+        // Limpa a tela após o redimensionamento
+        ctx.clearRect(0, 0, canvas.width, canvas.height); 
     }
     
     // Inicializa e monitora o redimensionamento
@@ -332,7 +323,7 @@ function setupMovimentacaoForm() {
     // Botão Limpar
     clearButton.addEventListener('click', () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        resizeCanvas(); // Garante que o DPR e o estilo sejam refeitos
+        resizeCanvas(); // Reseta o Canvas após a limpeza
     });
 
     // --- SALVAR MOVIMENTAÇÃO (com Lógica de KM e Alerta) ---
@@ -351,9 +342,9 @@ function setupMovimentacaoForm() {
             return;
         }
 
-        // Corrigido para buscar no container com ID correto
+        // Corrigido para buscar no container com ID correto e obter o texto do label
         const checklistItems = document.querySelectorAll('#mov-checklist-container input[type="checkbox"]:checked'); 
-        const checklist = Array.from(checklistItems).map(item => item.parentElement.querySelector('label').textContent); // Pega o texto do label
+        const checklist = Array.from(checklistItems).map(item => item.parentElement.querySelector('label').textContent); 
 
         const assinaturaDataUrl = canvas.toDataURL('image/png');
         
@@ -459,7 +450,9 @@ function setupPesquisaKmRapida() {
             if (veiculo) {
                 const kmRodadoAposTroca = veiculo.km_atual - veiculo.km_ultima_troca;
                 const precisaTrocar = kmRodadoAposTroca >= 10000; 
-                const corAlerta = precisaTrocar ? 'var(--color-primary-solid)' : '#4CAF50';
+                
+                // ⭐ CORREÇÃO DE ESTILO: Usa var(--color-primary-solid) (vermelho) para Alerta e var(--color-success) (verde) para OK
+                const corAlerta = precisaTrocar ? 'var(--color-primary-solid)' : 'var(--color-success)';
 
                 infoDiv.innerHTML = `
                     <p><strong>KM Atual:</strong> ${veiculo.km_atual.toLocaleString('pt-BR')}</p>
@@ -468,6 +461,7 @@ function setupPesquisaKmRapida() {
                 `;
             }
         } catch (error) {
+            // ⭐ CORREÇÃO DE ESTILO: Usa var(--color-primary-solid) para erro
             infoDiv.innerHTML = `<p style="color: var(--color-primary-solid);">Erro ao buscar informações.</p>`;
             console.error('Erro na pesquisa rápida de KM:', error);
         }
@@ -525,13 +519,15 @@ async function buscarMovimentacoesAuditoria() {
         const isSaida = mov.tipo === 'saida';
         const card = document.createElement('div');
         card.classList.add('card');
-        card.style.borderLeftColor = isSaida ? 'var(--color-primary-solid)' : '#4CAF50'; 
+        
+        // ⭐ CORREÇÃO DE ESTILO: Usa var(--color-primary-solid) (vermelho) para SAÍDA e var(--color-success) (verde) para ENTRADA
+        card.style.borderLeftColor = isSaida ? 'var(--color-primary-solid)' : 'var(--color-success)'; 
         
         const dataLocal = new Date(mov.data_hora).toLocaleString('pt-BR'); 
 
         card.innerHTML = `
             <h3 style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="color: ${isSaida ? 'var(--color-primary-solid)' : '#4CAF50'};">
+                <span style="color: ${isSaida ? 'var(--color-primary-solid)' : 'var(--color-success)'};">
                     ${isSaida ? 'SAÍDA' : 'ENTRADA'} - ${mov.placa_veiculo}
                 </span>
                 <button class="btn delete-mov-btn" data-id="${mov.id}" style="width: auto; padding: 5px 10px; margin: 0; background-color: #8B0000; font-size: 12px;">Excluir</button>
