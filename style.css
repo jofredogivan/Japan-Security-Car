@@ -1,4 +1,4 @@
-/* style.css - Versão Final: Gradiente, Mobile-First e Estilo App */
+/* style.css - Versão Final: Gradiente, Mobile-First, Checklist Dinâmico e Assinatura Polida */
 
 /* -------------------------------------------------------------------------- */
 /* 🎨 VARIÁVEIS                                 */
@@ -63,11 +63,12 @@ header h1 {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 📄 LAYOUT                                   */
+/* 📄 LAYOUT (Correção de Largura)             */
 /* -------------------------------------------------------------------------- */
 .container {
     width: 100%;
     margin: 0 auto;
+    /* Este padding não deve causar overflow em mobile */
     padding: 0 16px; 
 }
 
@@ -80,7 +81,7 @@ header h1 {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 📝 FORMULÁRIOS                               */
+/* 📝 FORMULÁRIOS E INPUTS                      */
 /* -------------------------------------------------------------------------- */
 .form-group {
     margin-bottom: 20px; 
@@ -113,24 +114,73 @@ input:focus, select:focus, textarea:focus {
     outline: none;
 }
 
-.checklist-group {
-    border: none;
-    padding: 15px;
-    border-radius: var(--border-radius);
+/* -------------------------------------------------------------------------- */
+/* ✅ CHECKLIST DINÂMICO (NOVO ESTILO)             */
+/* -------------------------------------------------------------------------- */
+#mov-checklist-container {
+    /* Layout em grid para 2 colunas */
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.checklist-item-card {
     background-color: var(--color-card-bg);
+    border-radius: var(--border-radius);
+    padding: 15px;
     box-shadow: var(--shadow-small);
-    margin-top: 10px;
-}
-
-.checklist-group label {
-    font-weight: normal;
-    display: flex; 
-    align-items: center;
-    margin-right: 0;
-    margin-bottom: 8px;
+    transition: all 0.2s ease;
     cursor: pointer;
+    text-align: center;
+    position: relative;
+    border: 2px solid transparent; 
 }
 
+/* Esconde o checkbox nativo */
+.checklist-item-card input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+/* Estilo do Label (Conteúdo do Card) */
+.checklist-item-card label {
+    display: block;
+    margin: 0;
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: var(--color-text-dark);
+    /* Garante que o label ocupe todo o card para ser clicável */
+    pointer-events: none; 
+}
+
+/* Estilo visual do Card MARCADO */
+.checklist-item-card:has(input[type="checkbox"]:checked) {
+    background-color: #FCE4EC; /* Cor de fundo suave (rosa/vermelho pálido) */
+    border-color: var(--color-primary-solid); /* Borda destacada */
+    /* Sombra sutil de destaque */
+    box-shadow: 0 4px 10px rgba(var(--color-primary-solid), 0.2);
+}
+
+/* Efeito quando o item é MARCADO */
+.checklist-item-card input[type="checkbox"]:checked + label {
+    color: var(--color-primary-solid); 
+    font-weight: 700;
+}
+
+/* Adiciona um Ícone de Checkmark (SÓ CSS, requer Font Awesome) */
+.checklist-item-card input[type="checkbox"]:checked + label::after {
+    content: "\f00c"; /* Ícone de checkmark Font Awesome */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    color: var(--color-primary-solid);
+    display: block;
+    font-size: 1.2rem;
+    margin-top: 5px;
+}
 /* -------------------------------------------------------------------------- */
 /* 👆 BOTÕES (GRADIENTE)                         */
 /* -------------------------------------------------------------------------- */
@@ -139,7 +189,7 @@ input:focus, select:focus, textarea:focus {
     width: 100%;
     padding: 14px; 
     border: none;
-    border-radius: 100px; /* Formato Pílula */
+    border-radius: 100px;
     font-size: 1.05rem;
     font-weight: bold;
     cursor: pointer;
@@ -168,82 +218,29 @@ input:focus, select:focus, textarea:focus {
 .btn-secondary {
     background: var(--gradient-secondary); 
 }
-
-.btn-secondary:hover {
-    background: linear-gradient(135deg, #80DEEA 0%, #00AE99 100%);
-    box-shadow: 0 7px 20px rgba(0, 0, 0, 0.3);
+/* Botão Limpar Assinatura usando o gradiente principal para ser mais visível */
+#clear-signature.btn-secondary {
+    background: var(--gradient-primary); 
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2); 
+    border-radius: 8px; /* Mais quadrado para botões internos */
+}
+#clear-signature.btn-secondary:hover {
+     background: linear-gradient(135deg, #FF998D 0%, #E53935 100%); 
 }
 
-.btn-secondary:active {
-    transform: scale(0.98);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-}
-
-.download-buttons {
-    display: flex;
-    gap: 10px;
-    margin-top: 20px;
-}
-
-.download-buttons .btn {
-    flex: 1;
-    padding: 12px;
-    border-radius: var(--border-radius); /* Voltando ao raio de card */
-}
+/* ... (demais estilos de botões/downloads) ... */
 
 /* -------------------------------------------------------------------------- */
-/* 🗃️ CARDS/LISTAS                              */
-/* -------------------------------------------------------------------------- */
-.list-container {
-    margin-top: 15px;
-}
-
-.card {
-    background-color: var(--color-card-bg);
-    border: none; 
-    border-top: 4px solid var(--color-primary-solid); /* Destaque sutil no topo */
-    border-radius: var(--border-radius);
-    padding: 15px;
-    margin-bottom: 12px;
-    box-shadow: var(--shadow-small); 
-    transition: transform 0.2s, box-shadow 0.2s;
-    cursor: pointer; /* Indica que o card é clicável */
-}
-
-.card:active {
-    transform: translateY(-2px); 
-    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.15);
-}
-
-.card h3 {
-    margin-top: 0;
-    font-size: 1.3rem;
-    margin-bottom: 5px;
-    font-weight: 600;
-}
-
-.card p {
-    margin: 5px 0;
-    font-size: 0.9rem;
-    color: #616161;
-}
-
-.card-placeholder {
-    text-align: center;
-    color: #888;
-    border-left: 5px solid #ccc;
-}
-
-/* -------------------------------------------------------------------------- */
-/* ✍️ ASSINATURA                                 */
+/* ✍️ ASSINATURA (Melhoria Visual)               */
 /* -------------------------------------------------------------------------- */
 .signature-pad-container {
     text-align: center;
     margin-top: 20px;
-    border: 1px solid #ddd;
+    border: none; 
     border-radius: var(--border-radius);
-    padding: 10px;
+    padding: 5px; 
     background-color: var(--color-card-bg);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); /* Sombra mais marcada */
 }
 
 #signature-pad {
@@ -251,18 +248,25 @@ input:focus, select:focus, textarea:focus {
     display: block;
     margin: 0 auto;
     touch-action: none; 
+    /* Borda e Fundo brancos visíveis para o campo */
+    border: 1px solid #ddd; 
+    background-color: white; 
     width: 100%; 
+    height: 150px; 
 }
 
+
+/* ... (demais estilos de nav-bar e FAB) ... */
+
 /* -------------------------------------------------------------------------- */
-/* 📱 BARRA DE NAVEGAÇÃO (GRADIENTE)                */
+/* 🧭 BARRA DE NAVEGAÇÃO (GRADIENTE)                */
 /* -------------------------------------------------------------------------- */
 .nav-bar {
     position: fixed;
     bottom: 0;
     left: 0;
     width: 100%;
-    background: var(--gradient-nav); /* Gradiente Roxo/Azul */
+    background: var(--gradient-nav); 
     display: flex;
     justify-content: space-around;
     align-items: center;
@@ -274,7 +278,7 @@ input:focus, select:focus, textarea:focus {
 .nav-btn {
     background: none;
     border: none;
-    color: #C5CAE9; /* Cor clara para inativos */
+    color: #C5CAE9; 
     cursor: pointer;
     flex: 1;
     padding: 10px 5px; 
@@ -291,7 +295,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 .nav-btn.active {
-    color: var(--color-accent-solid); /* Destaque com o Azul Accent */
+    color: var(--color-accent-solid); 
     font-weight: 600;
 }
 
@@ -307,7 +311,7 @@ input:focus, select:focus, textarea:focus {
     position: fixed;
     bottom: 85px; 
     right: 20px; 
-    background: var(--gradient-secondary); /* Gradiente Ciano/Verde */
+    background: var(--gradient-secondary); 
     color: var(--color-text-light);
     width: 56px; 
     height: 56px;
@@ -326,6 +330,7 @@ input:focus, select:focus, textarea:focus {
     transform: scale(0.95); 
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
+
 
 /* -------------------------------------------------------------------------- */
 /* 📏 MEDIA QUERIES                                */
