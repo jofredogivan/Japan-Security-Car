@@ -41,21 +41,37 @@ h1, h2, h3 {
     margin-bottom: 10px;
 }
 
-/* Container do APK: Centralizado e com bordas arredondadas e contorno vermelho */
+/* ⭐ AJUSTE: Centralização do Título (Assumindo que você tem um header com a classe .app-header) */
+.app-header {
+    text-align: center;
+    padding: 20px 0 10px 0;
+}
+.app-header h1 {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Centraliza o texto e o ícone */
+    gap: 8px; /* Espaço entre o ícone e o texto */
+    font-size: 1.8rem;
+    color: var(--color-text-light);
+}
+.app-header i {
+    color: var(--color-primary-solid); /* Cor vermelha para o ícone do carro */
+}
+
+
 .container {
     padding: 20px;
     max-width: 600px;
-    margin: 20px auto; /* Adiciona margem superior para afastar do topo */
-    background-color: var(--color-background); /* Garante que o fundo do container seja o mesmo */
+    margin: 0px auto; 
 }
 
 /* Estilo do Card/Formulário para replicar o bloco central do APK */
 .page {
     background-color: var(--color-card-bg);
     padding: 25px;
-    border-radius: 20px; /* Borda bem arredondada */
-    border: 2px solid var(--color-primary-solid); /* Contorno vermelho vivo */
-    box-shadow: 0 0 15px rgba(255, 0, 0, 0.4); /* Sombra vermelha sutil */
+    border-radius: 20px; 
+    border: 2px solid var(--color-primary-solid); 
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.4); 
     margin-bottom: 20px;
 }
 
@@ -85,7 +101,7 @@ textarea {
     padding: 12px;
     border: 1px solid var(--color-secondary-solid);
     border-radius: 8px;
-    background-color: var(--color-background); /* Input com fundo mais escuro */
+    background-color: var(--color-background); 
     color: var(--color-text-light);
     font-size: 16px;
     appearance: none;
@@ -103,7 +119,7 @@ textarea:focus {
 .btn {
     padding: 12px 15px;
     border: none;
-    border-radius: 8px; /* Mais arredondado */
+    border-radius: 8px; 
     font-weight: 600;
     cursor: pointer;
     text-align: center;
@@ -134,7 +150,7 @@ textarea:focus {
 }
 
 .btn-danger {
-    /* Botão Excluir Veículo na lista (corrigido para o vermelho escuro) */
+    /* Botão Excluir Veículo na lista */
     background-color: var(--color-danger) !important;
     color: var(--color-text-light);
 }
@@ -159,25 +175,6 @@ textarea:focus {
     border-bottom: 1px solid var(--color-card-bg);
 }
 
-.checklist-item {
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-}
-
-.checklist-item input[type="checkbox"] {
-    /*... (mantido, pois funciona bem em contraste com o fundo escuro) ...*/
-    appearance: none;
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--color-secondary-solid);
-    border-radius: 4px;
-    margin-right: 8px;
-    cursor: pointer;
-    display: grid;
-    place-content: center;
-}
-
 .checklist-item input[type="checkbox"]:checked {
     border-color: var(--color-primary-solid);
     background-color: var(--color-primary-solid);
@@ -199,17 +196,11 @@ textarea:focus {
 }
 
 .card {
-    background-color: var(--color-background); /* Fundo do card na lista é mais escuro */
+    background-color: var(--color-background); 
     padding: 15px;
     border-radius: 8px;
-    border-left: 8px solid var(--color-primary-solid); /* Borda esquerda Vermelha */
+    border-left: 8px solid var(--color-primary-solid); 
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
-}
-
-.card-placeholder {
-    text-align: center;
-    border-left: 8px solid var(--color-secondary-solid);
-    color: var(--color-secondary-solid);
 }
 
 /* --- 7. NAVEGAÇÃO E FAB --- */
@@ -218,26 +209,12 @@ nav {
     bottom: 0;
     left: 0;
     width: 100%;
-    background-color: var(--color-card-bg); /* Fundo da nav como a cor do Card */
+    background-color: var(--color-card-bg); 
     border-top: 1px solid var(--color-secondary-solid);
     display: flex;
     justify-content: space-around;
     padding: 5px 0;
     z-index: 1000;
-}
-
-.nav-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 8px;
-    color: var(--color-secondary-solid);
-    text-decoration: none;
-    font-size: 0.75rem;
-    font-weight: 600;
-    transition: color 0.2s;
-    flex: 1;
 }
 
 .nav-btn.active,
@@ -247,18 +224,8 @@ nav {
 
 /* Floating Action Button (FAB) */
 #fab-action {
-    position: fixed;
-    bottom: 75px; 
-    right: 20px;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
     background-color: var(--color-primary-solid);
-    color: white;
     box-shadow: 0 4px 10px rgba(255, 0, 0, 0.4);
-    font-size: 1.5rem;
-    z-index: 1000;
-    border: none;
 }
 
 #fab-action:hover {
@@ -269,7 +236,7 @@ nav {
 #signature-pad {
     width: 100%;
     height: 150px;
-    border: 2px dashed var(--color-primary-solid); /* Borda Vermelha */
+    border: 2px dashed var(--color-primary-solid); 
     background-color: var(--color-background); 
     touch-action: none;
     border-radius: 8px;
