@@ -1,20 +1,31 @@
-/* style.css */
+/* style.css - Versão Otimizada para Mobile/App */
 
 /* --- VARIÁVEIS E RESET BÁSICO --- */
 :root {
-    --color-primary: #FF0000; /* Vermelho Japan Security Car */
-    --color-secondary: #333;
-    --color-background: #f4f4f4;
-    --color-card-bg: #fff;
+    /* Cores */
+    --color-primary: #E53935; /* Vermelho mais moderno (Japan Security Car) */
+    --color-secondary: #455A64; /* Azul/Cinza escuro, mais profundo que #333 */
+    --color-accent: #29B6F6; /* Azul claro para elementos de destaque/interação */
+    --color-background: #FAFAFA; /* Fundo levemente mais claro */
+    --color-card-bg: #FFFFFF;
     --color-text-light: #fff;
-    --color-text-dark: #111;
+    --color-text-dark: #212121; /* Preto mais suave */
+    --color-success: #4CAF50; /* Verde para sucesso/conclusão */
+
+    /* Sombras e Bordas */
+    --shadow-small: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+    --shadow-medium: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+    --border-radius: 8px; /* Cantos mais arredondados, visual de app */
 }
 
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    font-family: Arial, sans-serif;
+    /* Fontes de app: Roboto é uma boa escolha, ou Arial como fallback */
+    font-family: 'Roboto', Arial, sans-serif;
+    /* Para prevenir o destaque azul de toque em alguns navegadores mobile */
+    -webkit-tap-highlight-color: transparent; 
 }
 
 body {
@@ -22,9 +33,11 @@ body {
     color: var(--color-text-dark);
     line-height: 1.6;
     padding-bottom: 70px; /* Espaço para a barra de navegação fixa */
+    /* Remove o overflow horizontal em mobile */
+    overflow-x: hidden; 
 }
 
-/* --- HEADER --- */
+/* --- HEADER (APP BAR) --- */
 header {
     background-color: var(--color-primary);
     color: var(--color-text-light);
@@ -33,40 +46,42 @@ header {
     position: sticky;
     top: 0;
     z-index: 1000;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    /* Sombra mais pronunciada, dando a sensação de "elevação" de uma barra de app */
+    box-shadow: var(--shadow-small);
 }
 
 header h1 {
-    font-size: 1.5rem;
+    font-size: 1.6rem; /* Levemente maior */
+    font-weight: 500; /* Levemente menos negrito */
 }
 
 /* --- LAYOUT PRINCIPAL E PÁGINAS --- */
 .container {
-    max-width: 800px;
-    margin: 0 auto;
-    /* AJUSTE ESSENCIAL PARA MOBILE: Garante que o conteúdo não seja mais largo que a tela */
-    width: 100%; 
-    padding: 0 10px;
+    /* Removendo max-width, deixando a largura 100% para telas mobile */
+    margin: 0 auto; 
+    width: 100%;
+    /* Preenchimento horizontal fixo para evitar que o conteúdo toque as bordas */
+    padding: 0 16px; 
 }
 
 .page {
     padding: 20px 0;
 }
 
-/* Regra essencial para esconder as abas não selecionadas */
 .hidden {
-    display: none !important; 
+    display: none !important;
 }
 
-/* --- FORMULÁRIOS E INPUTS --- */
+/* --- FORMULÁRIOS E INPUTS (Com foco na usabilidade de toque) --- */
 .form-group {
-    margin-bottom: 15px;
+    margin-bottom: 20px; /* Mais espaço entre campos para facilitar o toque */
 }
 
 label {
     display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
+    margin-bottom: 8px; /* Mais espaço abaixo do label */
+    font-weight: 600; /* Mais destaque */
+    font-size: 0.95rem;
 }
 
 input[type="text"],
@@ -76,41 +91,60 @@ input[type="datetime-local"],
 select,
 textarea {
     width: 100%;
-    padding: 10px;
+    padding: 12px; /* Aumenta o padding para melhor área de toque */
     border: 1px solid #ccc;
-    border-radius: 4px;
+    border-radius: var(--border-radius); /* Usando variável de canto arredondado */
     font-size: 1rem;
+    /* Sombra interna sutil para dar profundidade de input */
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06); 
+    transition: border-color 0.3s;
 }
 
-textarea {
-    resize: vertical;
+input:focus, select:focus, textarea:focus {
+    border-color: var(--color-primary); /* Destaque primário ao focar */
+    outline: none;
 }
 
+/* --- CHECKLISTS --- */
 .checklist-group {
-    border: 1px solid #ddd;
-    padding: 10px;
-    border-radius: 4px;
+    border: none; /* Removendo borda padrão */
+    padding: 15px;
+    border-radius: var(--border-radius);
     background-color: var(--color-card-bg);
+    box-shadow: var(--shadow-small); /* Aplicando sombra de card */
+    margin-top: 10px;
 }
 
 .checklist-group label {
     font-weight: normal;
-    display: inline-block;
-    margin-right: 15px;
+    display: flex; /* Usando flex para alinhar item e checkbox */
+    align-items: center;
+    margin-right: 0;
+    margin-bottom: 8px;
+    cursor: pointer;
 }
 
-/* --- BOTÕES --- */
+/* --- BOTÕES (Estilo Moderno de Ação) --- */
 .btn {
     display: block;
     width: 100%;
-    padding: 10px;
+    padding: 14px; /* Mais padding para melhor área de toque */
     border: none;
-    border-radius: 4px;
-    font-size: 1rem;
+    border-radius: 100px; /* Botões mais arredondados (pill-shaped) para visual moderno */
+    font-size: 1.05rem;
+    font-weight: bold;
     cursor: pointer;
     text-align: center;
-    transition: background-color 0.3s;
-    margin-top: 10px;
+    transition: background-color 0.3s, transform 0.1s;
+    margin-top: 15px;
+    /* Pequena sombra para elevar o botão */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); 
+}
+
+.btn:active {
+    /* Efeito de "pressionar" no toque */
+    transform: scale(0.98); 
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .btn-primary {
@@ -119,26 +153,29 @@ textarea {
 }
 
 .btn-primary:hover {
-    background-color: #cc0000;
+    background-color: #C62828; /* Vermelho mais escuro no hover */
 }
 
 .btn-secondary {
-    background-color: var(--color-secondary);
+    /* Usando a cor de destaque para um botão secundário */
+    background-color: var(--color-accent); 
     color: var(--color-text-light);
 }
 
 .btn-secondary:hover {
-    background-color: #555;
+    background-color: #03A9F4;
 }
 
 .download-buttons {
     display: flex;
     gap: 10px;
-    margin-top: 15px;
+    margin-top: 20px;
 }
 
 .download-buttons .btn {
     flex: 1;
+    padding: 12px; /* Um pouco menor para caber dois */
+    border-radius: var(--border-radius); /* Voltando ao raio de card para dois botões juntos */
 }
 
 /* --- LISTAS E CARDS --- */
@@ -148,67 +185,78 @@ textarea {
 
 .card {
     background-color: var(--color-card-bg);
-    border: 1px solid #ddd;
-    border-left: 5px solid var(--color-primary); /* Cor de destaque para status */
-    border-radius: 6px;
+    border: none; /* Removendo a borda externa */
+    border-left: 5px solid var(--color-primary);
+    border-radius: var(--border-radius);
     padding: 15px;
-    margin-bottom: 10px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    margin-bottom: 12px;
+    /* Sombra padrão para dar a sensação de "card" em um aplicativo */
+    box-shadow: var(--shadow-small); 
+    transition: transform 0.2s;
+}
+
+.card:active {
+    /* Feedback visual ao tocar no card (para ações como abrir/detalhes) */
+    transform: translateY(-2px); 
 }
 
 .card h3 {
     margin-top: 0;
-    font-size: 1.2rem;
+    font-size: 1.3rem; /* Levemente maior */
     margin-bottom: 5px;
+    font-weight: 600;
 }
 
 .card p {
     margin: 5px 0;
-    font-size: 0.95rem;
-}
-
-.card-placeholder {
-    text-align: center;
-    color: #888;
-    border-left: 5px solid #ccc;
+    font-size: 0.9rem;
+    color: #616161; /* Cor de texto mais suave */
 }
 
 /* --- ASSINATURA --- */
 .signature-pad-container {
     text-align: center;
-    margin-top: 15px;
+    margin-top: 20px;
+    /* Adiciona borda e sombra ao container para parecer uma área de desenho */
+    border: 1px solid #ddd;
+    border-radius: var(--border-radius);
+    padding: 10px;
+    background-color: var(--color-card-bg);
 }
 
 #signature-pad {
     max-width: 100%;
     display: block;
     margin: 0 auto;
-    touch-action: none; /* Previne o scroll em touch devices */
+    touch-action: none; 
+    /* Garante que o canvas da assinatura preencha o container */
+    width: 100%; 
 }
 
-/* --- BARRA DE NAVEGAÇÃO FIXA --- */
+/* --- BARRA DE NAVEGAÇÃO FIXA (Bottom Navigation Bar) --- */
 .nav-bar {
     position: fixed;
     bottom: 0;
     left: 0;
     width: 100%;
-    background-color: var(--color-secondary);
+    background-color: var(--color-card-bg); /* Fundo branco ou claro, padrão de app */
+    border-top: 1px solid #eee; /* Linha sutil no topo */
     display: flex;
     justify-content: space-around;
     align-items: center;
-    padding: 5px 0;
-    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
+    padding: 8px 0; /* Mais padding vertical */
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1); /* Sombra mais suave */
     z-index: 1000;
 }
 
 .nav-btn {
     background: none;
     border: none;
-    color: #aaa;
+    color: #9E9E9E; /* Cor de ícone inativo padrão */
     cursor: pointer;
     flex: 1;
-    padding: 8px 5px;
-    font-size: 0.7rem;
+    padding: 10px 5px; /* Mais padding para maior área de toque */
+    font-size: 0.75rem; /* Levemente maior */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -216,51 +264,63 @@ textarea {
 }
 
 .nav-btn i {
-    font-size: 1.2rem;
-    margin-bottom: 3px;
+    font-size: 1.4rem; /* Ícones maiores */
+    margin-bottom: 2px;
 }
 
 .nav-btn.active {
     color: var(--color-primary);
-    font-weight: bold;
+    font-weight: 600;
 }
 
-.nav-btn:hover:not(.active) {
-    color: var(--color-text-light);
+.nav-btn:hover:not(.active),
+.nav-btn:active:not(.active) {
+    color: var(--color-secondary); /* Feedback no hover/toque */
 }
 
 /* --- FAB (Floating Action Button) --- */
 .fab {
     position: fixed;
-    bottom: 75px; /* Acima da nav-bar */
-    right: 15px;
-    background-color: var(--color-primary);
+    bottom: 85px; /* Um pouco mais acima para evitar a sombra da nav-bar */
+    right: 20px; /* Mais afastado da borda */
+    background-color: var(--color-accent); /* Usando a cor de destaque (Accent) */
     color: var(--color-text-light);
-    width: 50px;
-    height: 50px;
+    width: 56px; /* Tamanho padrão de FAB */
+    height: 56px;
     border-radius: 50%;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 1.5rem;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    font-size: 1.8rem; /* Ícone maior */
+    /* Sombra mais forte para destaque (Medium Shadow) */
+    box-shadow: var(--shadow-medium); 
     cursor: pointer;
-    z-index: 1000;
-    transition: background-color 0.3s;
+    z-index: 1001;
+    transition: background-color 0.3s, transform 0.1s;
 }
 
 .fab:hover {
-    background-color: #cc0000;
+    background-color: #03A9F4;
 }
 
-/* --- RESPONSIVIDADE PEQUENA (Garante que tudo caiba em telas menores) --- */
-@media (max-width: 500px) {
+.fab:active {
+    /* Efeito de "pressionar" no toque */
+    transform: scale(0.95); 
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* --- MEDIA QUERIES (Ajustes para telas muito pequenas, mas mantendo a base) --- */
+@media (max-width: 360px) {
     .nav-btn {
-        font-size: 0.6rem;
-        padding: 6px 3px;
+        font-size: 0.65rem;
+        padding: 8px 3px;
     }
 
     .nav-btn i {
-        font-size: 1rem;
+        font-size: 1.2rem;
+    }
+
+    .container {
+        padding: 0 10px; /* Reduz um pouco o padding em telas muito estreitas */
     }
 }
