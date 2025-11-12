@@ -1,4 +1,4 @@
-// app.js (Código completo e atualizado, com registro do Service Worker)
+// app.js (Código completo e atualizado com correção de importação e exclusões)
 
 import { 
     saveVeiculo, 
@@ -7,7 +7,9 @@ import {
     deleteVeiculo, 
     openDB, 
     saveMovimentacao, 
-    updateVeiculoKm 
+    updateVeiculoKm,
+    deleteMovimentacaoById,
+    getAllMovimentacoes // CORREÇÃO: Função de busca de histórico importada
 } from './db.js';
 
 let lastSearchResult = []; 
@@ -41,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. Lógica do Formulário de Cadastro de Veículo
     setupCadastroVeiculo();
 
-    // 4. Carrega a lista de veículos (apenas para teste)
+    // 4. Carrega a lista de veículos (usada no Dashboard e na tela de Cadastro para exclusão)
     loadVeiculosList();
     
     // 5. Carrega as opções de veículos no formulário de movimentação
@@ -76,7 +78,7 @@ function setupNavigation() {
             if (targetPage) {
                 targetPage.classList.remove('hidden');
                 
-                if (targetId === 'dashboard') {
+                if (targetId === 'dashboard' || targetId === 'cadastro-veiculo') { 
                     loadVeiculosList(); 
                 } else if (targetId === 'movimentacao') {
                     loadVeiculosForMovimentacao();
@@ -124,15 +126,21 @@ function setupCadastroVeiculo() {
     });
 }
 
-// --- DASHBOARD: EXIBIÇÃO DE VEÍCULOS E ALERTA DE ÓLEO ---
+// --- DASHBOARD/CADASTRO: EXIBIÇÃO DE VEÍCULOS E ALERTA DE ÓLEO (E BOTÃO DE EXCLUSÃO) ---
 async function loadVeiculosList() {
     const veiculos = await getAllVeiculos();
     
     const listElement = document.getElementById('movimentacoes-list');
+    
+    // Determina se o painel de cadastro está visível para mostrar o botão de exclusão
+    // Verifica se a página que contém o elemento de cadastro está ativa
+    const isCadastroPage = !document.getElementById('cadastro-veiculo').classList.contains('hidden');
+
     listElement.innerHTML = ''; 
 
     if (veiculos.length === 0) {
         listElement.innerHTML = '<div class="card card-placeholder">Nenhuma viatura cadastrada.</div>';
+        // Se estiver na aba cadastro, talvez fosse melhor mostrar o formulário de cadastro, mas vamos manter o padrão.
         return;
     }
     
@@ -146,7 +154,12 @@ async function loadVeiculosList() {
         card.style.borderLeftColor = corAlerta; 
         
         card.innerHTML = `
-            <h3>PLACA: ${v.placa}</h3>
+            <h3 style="display: flex; justify-content: space-between; align-items: center;">
+                PLACA: ${v.placa}
+                ${isCadastroPage ? 
+                    `<button class="btn btn-secondary delete-veiculo-btn" data-placa="${v.placa}" style="width: auto; padding: 5px 10px; margin: 0; background-color: #8B0000;">Excluir</button>` 
+                    : ''}
+            </h3>
             <p>Modelo: ${v.modelo}</p>
             <p>KM Atual: <strong>${v.km_atual.toLocaleString('pt-BR')}</strong></p>
             <p style="color: ${corAlerta}; font-size: 14px; font-weight: bold;">
@@ -155,7 +168,29 @@ async function loadVeiculosList() {
         `;
         listElement.appendChild(card);
     });
+    
+    // Adicionar listener de exclusão APENAS se estiver na página de Cadastro
+    if (isCadastroPage) {
+        listElement.querySelectorAll('.delete-veiculo-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const placa = e.target.getAttribute('data-placa');
+                if (confirm(`Tem certeza que deseja EXCLUIR o veículo ${placa} e todo seu histórico? Esta ação é irreversível!`)) {
+                    try {
+                        await deleteVeiculo(placa); 
+                        alert(`Veículo ${placa} excluído com sucesso.`);
+                        loadVeiculosList(); 
+                        loadVeiculosForMovimentacao(); 
+                        loadVeiculosForHistorico(); 
+                    } catch (error) {
+                        alert('Erro ao excluir veículo.');
+                        console.error('Erro ao excluir veículo:', error);
+                    }
+                }
+            });
+        });
+    }
 }
+
 
 // --- MOVIMENTAÇÃO: CARREGAR VEÍCULOS NO SELECT ---
 async function loadVeiculosForMovimentacao() {
@@ -226,7 +261,7 @@ function setupMovimentacaoForm() {
         const placa = document.getElementById('mov-placa').value;
         const motorista = document.getElementById('mov-motorista').value;
         const tipo = document.getElementById('mov-tipo').value;
-        const dataHora = document.getElementById('mov-data-hora').value;
+        const dataHora = document.getElementById('mov-data-hora').value; // String YYYY-MM-DDTHH:MM
         const observacao = document.getElementById('mov-observacao').value;
         const kmInput = document.getElementById('mov-km-atual');
         const kmAtualMovimentacao = parseInt(kmInput.value, 10);
@@ -241,11 +276,14 @@ function setupMovimentacaoForm() {
 
         const assinaturaDataUrl = canvas.toDataURL('image/png');
         
+        // Converte a string YYYY-MM-DDTHH:MM para ISO string para salvar no DB
+        const dataHoraISO = new Date(dataHora).toISOString();
+        
         const novaMovimentacao = {
             placa_veiculo: placa,
             motorista: motorista,
             tipo: tipo,
-            data_hora: new Date(dataHora).toISOString(),
+            data_hora: dataHoraISO, // Salva em formato ISO (com hora)
             checklist: checklist,
             observacao: observacao,
             assinatura: assinaturaDataUrl, 
@@ -333,8 +371,8 @@ function setupPesquisaKmRapida() {
             const veiculo = await getVeiculoByPlaca(placa);
             if (veiculo) {
                 const kmRodadoAposTroca = veiculo.km_atual - veiculo.km_ultima_troca;
-                const precisaTrocar = kmRodadoAposTroca >= 10000;
-                const corAlerta = precisaTroca ? 'var(--color-primary)' : 'green';
+                const precisaTrocar = kmRodadoAposTroca >= 10000; // Variável corrigida para 'precisaTrocar'
+                const corAlerta = precisaTrocar ? 'var(--color-primary)' : 'green';
 
                 infoDiv.innerHTML = `
                     <p><strong>KM Atual:</strong> ${veiculo.km_atual.toLocaleString('pt-BR')}</p>
@@ -349,7 +387,7 @@ function setupPesquisaKmRapida() {
     });
 }
 
-// --- HISTÓRICO: Lógica de Auditoria e Associações ---
+// --- HISTÓRICO: Lógica de Auditoria e Associações (E BOTÃO DE EXCLUSÃO) ---
 async function buscarMovimentacoesAuditoria() {
     const placaFiltro = document.getElementById('filtro-veiculo').value;
     const dataInicioStr = document.getElementById('filtro-data-inicio').value;
@@ -358,7 +396,7 @@ async function buscarMovimentacoesAuditoria() {
     
     resultadosDiv.innerHTML = '<div class="card card-placeholder">Buscando...</div>';
 
-    let movimentacoes = await getAllMovimentacoes();
+    let movimentacoes = await getAllMovimentacoes(); // CORRIGIDO: Função agora importada e utilizável!
 
     // 1. Filtrar
     movimentacoes = movimentacoes.filter(mov => {
@@ -402,13 +440,17 @@ async function buscarMovimentacoesAuditoria() {
         card.classList.add('card');
         card.style.borderLeftColor = isSaida ? 'var(--color-primary)' : 'yellowgreen'; 
         
-        const dataLocal = new Date(mov.data_hora).toLocaleString('pt-BR');
+        // Data e Hora são exibidas juntas
+        const dataLocal = new Date(mov.data_hora).toLocaleString('pt-BR'); 
 
         card.innerHTML = `
-            <p style="font-size: 10px; color: #888;">ID: ${mov.id}</p>
-            <h3 style="color: ${isSaida ? 'var(--color-primary)' : 'yellowgreen'};">
-                ${isSaida ? 'SAÍDA' : 'ENTRADA'} - ${mov.placa_veiculo}
+            <h3 style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: ${isSaida ? 'var(--color-primary)' : 'yellowgreen'};">
+                    ${isSaida ? 'SAÍDA' : 'ENTRADA'} - ${mov.placa_veiculo}
+                </span>
+                <button class="btn delete-mov-btn" data-id="${mov.id}" style="width: auto; padding: 5px 10px; margin: 0; background-color: #8B0000; font-size: 12px;">Excluir</button>
             </h3>
+            <p style="font-size: 10px; color: #888;">ID: ${mov.id}</p>
             <p><strong>Motorista:</strong> ${mov.motorista}</p>
             <p><strong>Data/Hora:</strong> ${dataLocal}</p>
             ${mov.km_atual ? `<p><strong>KM:</strong> ${mov.km_atual.toLocaleString('pt-BR')}</p>` : ''}
@@ -421,7 +463,30 @@ async function buscarMovimentacoesAuditoria() {
         `;
         resultadosDiv.appendChild(card);
     });
+
+    // Adicionar listener de exclusão para o histórico APÓS a renderização:
+    resultadosDiv.querySelectorAll('.delete-mov-btn').forEach(button => {
+        button.addEventListener('click', async (e) => {
+            const id = parseInt(e.target.getAttribute('data-id'));
+            if (confirm(`Tem certeza que deseja EXCLUIR o registro de movimentação ID: ${id}?`)) {
+                await deleteMovimentacao(id); 
+            }
+        });
+    });
 }
+
+// --- FUNÇÃO DE EXCLUSÃO DE MOVIMENTAÇÃO ---
+async function deleteMovimentacao(id) {
+    try {
+        await deleteMovimentacaoById(id);
+        alert(`Registro ID: ${id} excluído com sucesso.`);
+        buscarMovimentacoesAuditoria(); // Recarrega a lista
+    } catch (error) {
+        alert('Erro ao excluir registro. Verifique o console.');
+        console.error('Erro ao excluir movimentação:', error);
+    }
+}
+
 
 // --- HISTÓRICO: Configuração Final ---
 function setupHistorico() {
@@ -434,7 +499,8 @@ function setupHistorico() {
     document.getElementById('btn-download-excel').addEventListener('click', () => exportToExcel(lastSearchResult));
 }
 
-// --- FUNÇÕES DE EXPORTAÇÃO ---
+// --- FUNÇÕES DE EXPORTAÇÃO (Mantidas) ---
+
 function exportToPDF(data) {
     if (typeof window.jspdf === 'undefined' || !data || data.length === 0) {
         alert('Faça uma busca antes de exportar! (Verifique se os CDNs do PDF estão carregados)');
