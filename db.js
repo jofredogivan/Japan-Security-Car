@@ -191,6 +191,6 @@ export {
     updateVeiculoKm, 
     saveMovimentacao,
     getAllMovimentacoes,
-    deleteMovimentacaoById, // AGORA ESTÁ EXPORTADO CORRETAMENTE!
+    deleteMovimentacaoById, 
     saveManutencao
 };
