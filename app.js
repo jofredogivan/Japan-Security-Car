@@ -151,8 +151,8 @@ async function loadVeiculosList() {
         const kmRodadoAposTroca = v.km_atual - v.km_ultima_troca;
         const precisaTrocar = kmRodadoAposTroca >= 10000;
         
-        // ⭐ CORREÇÃO DE ESTILO: Usa var(--color-primary-solid) (vermelho) para Alerta e var(--color-success) (verde) para OK
-        const corAlerta = precisaTrocar ? 'var(--color-primary-solid)' : 'var(--color-success)'; 
+        // CORREÇÃO DE ESTILO: Usa var(--color-primary-solid) (vermelho) para Alerta e var(--color-success) (verde) para OK
+        const corAlerta = precisaTroca ? 'var(--color-primary-solid)' : 'var(--color-success)'; 
         
         const card = document.createElement('div');
         card.classList.add('card');
@@ -162,7 +162,8 @@ async function loadVeiculosList() {
             <h3 style="display: flex; justify-content: space-between; align-items: center;">
                 PLACA: ${v.placa}
                 ${isCadastroPage ? 
-                    `<button class="btn btn-secondary delete-veiculo-btn" data-placa="${v.placa}" style="width: auto; padding: 5px 10px; margin: 0; background-color: #8B0000;">Excluir</button>` 
+                    // Mudança no botão de exclusão para usar a classe btn-danger do novo estilo
+                    `<button class="btn btn-danger delete-veiculo-btn" data-placa="${v.placa}" style="width: auto; padding: 5px 10px; margin: 0; font-size: 12px;">Excluir</button>` 
                     : ''}
             </h3>
             <p>Modelo: ${v.modelo}</p>
@@ -176,7 +177,12 @@ async function loadVeiculosList() {
     
     // Adicionar listener de exclusão APENAS se estiver na página de Cadastro
     if (isCadastroPage) {
-        listElement.querySelectorAll('.delete-veiculo-btn').forEach(button => {
+        // Movemos a lista de exclusão do dashboard para a tela de cadastro
+        const deleteListElement = document.getElementById('delete-veiculo-list');
+        deleteListElement.innerHTML = listElement.innerHTML; // Copia os cards para a seção de exclusão
+
+        // Adicionar listeners ao invés de usar o mesmo elemento DOM (evita duplicação de IDs)
+        deleteListElement.querySelectorAll('.delete-veiculo-btn').forEach(button => {
             button.addEventListener('click', async (e) => {
                 const placa = e.target.getAttribute('data-placa');
                 if (confirm(`Tem certeza que deseja EXCLUIR o veículo ${placa} e todo seu histórico? Esta ação é irreversível!`)) {
@@ -194,6 +200,30 @@ async function loadVeiculosList() {
                     }
                 }
             });
+        });
+
+        // Limpa o dashboard para não duplicar os cards
+        document.getElementById('movimentacoes-list').innerHTML = veiculos.length === 0 ? '<div class="card card-placeholder">Nenhuma viatura cadastrada.</div>' : '';
+        veiculos.forEach(v => {
+            const kmRodadoAposTroca = v.km_atual - v.km_ultima_troca;
+            const precisaTrocar = kmRodadoAposTroca >= 10000;
+            const corAlerta = precisaTrocar ? 'var(--color-primary-solid)' : 'var(--color-success)'; 
+            
+            const card = document.createElement('div');
+            card.classList.add('card');
+            card.style.borderLeftColor = corAlerta; 
+            
+            card.innerHTML = `
+                <h3 style="display: flex; justify-content: space-between; align-items: center;">
+                    PLACA: ${v.placa}
+                </h3>
+                <p>Modelo: ${v.modelo}</p>
+                <p>KM Atual: <strong>${v.km_atual.toLocaleString('pt-BR')}</strong></p>
+                <p style="color: ${corAlerta}; font-size: 14px; font-weight: bold;">
+                    Status Óleo: ${precisaTrocar ? '🚨 TROCA NECESSÁRIA!' : `OK (Próx. KM: ${(v.km_ultima_troca + 10000).toLocaleString('pt-BR')})`}
+                </p>
+            `;
+            document.getElementById('movimentacoes-list').appendChild(card);
         });
     }
 }
@@ -231,41 +261,36 @@ function setupMovimentacaoForm() {
     // OTIMIZAÇÃO E REDIMENSIONAMENTO DO CANVAS (DPR)
     // -------------------------------------------------------------
     function resizeCanvas() {
-        // Obtém o Device Pixel Ratio (DPR) para alta resolução
         const ratio = Math.max(window.devicePixelRatio || 1, 1);
         
-        // Define as dimensões internas do Canvas em alta resolução
         canvas.width = canvas.offsetWidth * ratio;
         canvas.height = canvas.offsetHeight * ratio;
         
-        // Reduz a escala da área de desenho de volta ao tamanho normal, mantendo a resolução
         ctx.scale(ratio, ratio);
         
-        // Reconfigura o estilo de desenho após o redimensionamento/escala
-        ctx.strokeStyle = 'black'; 
+        // ⭐ CORREÇÃO DE ESTILO: Assinatura em branco para fundo escuro
+        ctx.strokeStyle = 'white'; 
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
-        // Limpa a tela após o redimensionamento
         ctx.clearRect(0, 0, canvas.width, canvas.height); 
     }
     
     // Inicializa e monitora o redimensionamento
     window.addEventListener('resize', resizeCanvas);
-    resizeCanvas(); // Chama a primeira vez para inicializar o Canvas
+    resizeCanvas(); 
     
     // -------------------------------------------------------------
     // Lógica de Preencher o KM
     // -------------------------------------------------------------
     selectPlacaMov.addEventListener('change', async (e) => {
         const placa = e.target.value;
-        kmInputMov.value = ''; // Limpa o campo para a próxima seleção
+        kmInputMov.value = ''; 
 
         if (placa) {
             const veiculo = await getVeiculoByPlaca(placa);
             if (veiculo) {
-                // Preenche o campo KM com o último KM registrado
                 kmInputMov.value = veiculo.km_atual; 
                 kmInputMov.setAttribute('min', veiculo.km_atual);
             }
@@ -290,7 +315,7 @@ function setupMovimentacaoForm() {
     }
 
     function startPosition(e) { 
-        e.preventDefault(); // Previne scroll/zoom em touch
+        e.preventDefault(); 
         drawing = true; 
         const { x, y } = getCursorPosition(e);
         ctx.beginPath();
@@ -303,7 +328,7 @@ function setupMovimentacaoForm() {
     
     function draw(e) {
         if (!drawing) return;
-        e.preventDefault(); // Previne scroll/zoom em touch
+        e.preventDefault(); 
         
         const { x, y } = getCursorPosition(e);
         
@@ -323,7 +348,7 @@ function setupMovimentacaoForm() {
     // Botão Limpar
     clearButton.addEventListener('click', () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        resizeCanvas(); // Reseta o Canvas após a limpeza
+        resizeCanvas(); 
     });
 
     // --- SALVAR MOVIMENTAÇÃO (com Lógica de KM e Alerta) ---
@@ -333,7 +358,7 @@ function setupMovimentacaoForm() {
         const placa = selectPlacaMov.value;
         const motorista = document.getElementById('mov-motorista').value;
         const tipo = document.getElementById('mov-tipo').value;
-        const dataHora = document.getElementById('mov-data-hora').value; // String YYYY-MM-DDTHH:MM
+        const dataHora = document.getElementById('mov-data-hora').value; 
         const observacao = document.getElementById('mov-observacao').value;
         const kmAtualMovimentacao = parseInt(kmInputMov.value, 10);
         
@@ -342,20 +367,18 @@ function setupMovimentacaoForm() {
             return;
         }
 
-        // Corrigido para buscar no container com ID correto e obter o texto do label
         const checklistItems = document.querySelectorAll('#mov-checklist-container input[type="checkbox"]:checked'); 
         const checklist = Array.from(checklistItems).map(item => item.parentElement.querySelector('label').textContent); 
 
         const assinaturaDataUrl = canvas.toDataURL('image/png');
         
-        // Converte a string YYYY-MM-DDTHH:MM para ISO string para salvar no DB
         const dataHoraISO = new Date(dataHora).toISOString();
         
         const novaMovimentacao = {
             placa_veiculo: placa,
             motorista: motorista,
             tipo: tipo,
-            data_hora: dataHoraISO, // Salva em formato ISO (com hora)
+            data_hora: dataHoraISO, 
             checklist: checklist,
             observacao: observacao,
             assinatura: assinaturaDataUrl, 
@@ -383,10 +406,10 @@ function setupMovimentacaoForm() {
                     if (confirmarTroca) {
                         await updateVeiculoKm(placa, kmAtualMovimentacao, kmAtualMovimentacao);
                     } else {
-                        await updateVeiculoKm(placa, kmAtualMovimentacao, null); // Atualiza só o KM atual
+                        await updateVeiculoKm(placa, kmAtualMovimentacao, null); 
                     }
                 } else {
-                    await updateVeiculoKm(placa, kmAtualMovimentacao, null); // Atualiza só o KM atual
+                    await updateVeiculoKm(placa, kmAtualMovimentacao, null); 
                 }
             }
             
@@ -394,8 +417,8 @@ function setupMovimentacaoForm() {
             alert(`Movimentação de ${tipo.toUpperCase()} da placa ${placa} registrada com sucesso!`);
             
             form.reset();
-            ctx.clearRect(0, 0, canvas.width, canvas.height); // Limpa o canvas
-            resizeCanvas(); // Reseta o Canvas após a limpeza
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            resizeCanvas(); 
             kmInputMov.value = ''; 
             loadVeiculosList(); 
             
@@ -451,7 +474,7 @@ function setupPesquisaKmRapida() {
                 const kmRodadoAposTroca = veiculo.km_atual - veiculo.km_ultima_troca;
                 const precisaTrocar = kmRodadoAposTroca >= 10000; 
                 
-                // ⭐ CORREÇÃO DE ESTILO: Usa var(--color-primary-solid) (vermelho) para Alerta e var(--color-success) (verde) para OK
+                // CORREÇÃO DE ESTILO: Usa var(--color-primary-solid) (vermelho) para Alerta e var(--color-success) (verde) para OK
                 const corAlerta = precisaTrocar ? 'var(--color-primary-solid)' : 'var(--color-success)';
 
                 infoDiv.innerHTML = `
@@ -461,7 +484,7 @@ function setupPesquisaKmRapida() {
                 `;
             }
         } catch (error) {
-            // ⭐ CORREÇÃO DE ESTILO: Usa var(--color-primary-solid) para erro
+            // CORREÇÃO DE ESTILO: Usa var(--color-primary-solid) para erro
             infoDiv.innerHTML = `<p style="color: var(--color-primary-solid);">Erro ao buscar informações.</p>`;
             console.error('Erro na pesquisa rápida de KM:', error);
         }
@@ -520,7 +543,7 @@ async function buscarMovimentacoesAuditoria() {
         const card = document.createElement('div');
         card.classList.add('card');
         
-        // ⭐ CORREÇÃO DE ESTILO: Usa var(--color-primary-solid) (vermelho) para SAÍDA e var(--color-success) (verde) para ENTRADA
+        // CORREÇÃO DE ESTILO: Usa var(--color-primary-solid) (vermelho) para SAÍDA e var(--color-success) (verde) para ENTRADA
         card.style.borderLeftColor = isSaida ? 'var(--color-primary-solid)' : 'var(--color-success)'; 
         
         const dataLocal = new Date(mov.data_hora).toLocaleString('pt-BR'); 
