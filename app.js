@@ -1,212 +1,801 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Japan Security Car - PWA</title>
+// app.js (Código completo, finalizado, com todas as correções)
+
+import { 
+    saveVeiculo, 
+    getAllVeiculos, 
+    getVeiculoByPlaca, 
+    deleteVeiculo, 
+    openDB, 
+    saveMovimentacao, 
+    updateVeiculoKm,
+    deleteMovimentacaoById,
+    getAllMovimentacoes 
+} from './db.js';
+
+let lastSearchResult = []; 
+
+// -------------------------------------------------------------
+// REGISTRO DO SERVICE WORKER (PWA OFFLINE)
+// -------------------------------------------------------------
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        // CORREÇÃO: Certificando-se de que o caminho é relativo à raiz
+        navigator.serviceWorker.register('./sw.js') 
+            .then((registration) => {
+                console.log('ServiceWorker registrado com sucesso: ', registration.scope);
+            })
+            .catch((err) => {
+                console.log('Falha no registro do ServiceWorker: ', err);
+            });
+    });
+}
+// -------------------------------------------------------------
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Inicializa o IndexedDB na carga da página
+    openDB()
+        .then(() => console.log('IndexedDB pronto e aberto!'))
+        .catch(err => console.error('Falha ao abrir o DB:', err));
+
+    // 2. Lógica de Navegação (Mudança de Telas)
+    setupNavigation();
+
+    // 3. Lógica do Formulário de Cadastro de Veículo
+    setupCadastroVeiculo();
+
+    // 4. Carrega a lista de veículos (usada no Dashboard e na tela de Cadastro para exclusão)
+    loadVeiculosList();
     
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    // 5. Carrega as opções de veículos no formulário de movimentação
+    loadVeiculosForMovimentacao(); 
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    // 6. Lógica do formulário de Movimentação (incluindo assinatura)
+    setupMovimentacaoForm(); 
     
-    <link rel="manifest" href="manifest.json">
+    // 7. Lógica da Tela de Histórico e Auditoria
+    setupHistorico(); 
     
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="container">
+    // 8. Lógica da tela de Atualização de KM Noturna
+    setupAtualizacaoKm(); 
+
+    // 9. CORREÇÃO: Botão Flutuante (FAB) para ir para a Movimentação
+    document.getElementById('fab-action').addEventListener('click', () => {
+        document.querySelector('.nav-btn[data-target="movimentacao"]').click();
+    });
+});
+
+// --- NAVEGAÇÃO ---
+function setupNavigation() {
+    const navButtons = document.querySelectorAll('.nav-btn');
+    const pages = document.querySelectorAll('.page');
+
+    navButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+            const targetId = e.currentTarget.getAttribute('data-target');
+            
+            navButtons.forEach(btn => btn.classList.remove('active'));
+            pages.forEach(page => page.classList.add('hidden'));
+
+            e.currentTarget.classList.add('active');
+            const targetPage = document.getElementById(targetId);
+            if (targetPage) {
+                targetPage.classList.remove('hidden');
+                
+                // Recarrega dados relevantes ao mudar de tela
+                if (targetId === 'dashboard' || targetId === 'cadastro-veiculo') { 
+                    loadVeiculosList(); 
+                } else if (targetId === 'movimentacao') {
+                    loadVeiculosForMovimentacao();
+                } else if (targetId === 'historico') {
+                    loadVeiculosForHistorico(); 
+                    setupPesquisaKmRapida(); 
+                } else if (targetId === 'atualizacao-km') { 
+                    loadVeiculosForKmUpdate(); 
+                }
+            }
+        });
+    });
+}
+
+// --- CADASTRO DE VEÍCULO ---
+function setupCadastroVeiculo() {
+    const form = document.getElementById('form-cadastro-veiculo');
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const placa = document.getElementById('veiculo-placa').value.toUpperCase().trim();
+        const modelo = document.getElementById('veiculo-modelo').value.trim();
+        const kmAtual = parseInt(document.getElementById('veiculo-km').value, 10);
+
+        if (!placa || !modelo || isNaN(kmAtual)) {
+            alert('Por favor, preencha todos os campos corretamente.');
+            return;
+        }
+
+        const novoVeiculo = {
+            placa: placa,
+            modelo: modelo,
+            km_atual: kmAtual,
+            km_ultima_troca: kmAtual 
+        };
+
+        try {
+            await saveVeiculo(novoVeiculo);
+            alert(`Viatura PLACA: ${placa} salva com sucesso!`);
+            form.reset();
+            
+            // AÇÃO CHAVE: Recarrega as listas e navega para o Dashboard
+            loadVeiculosList(); 
+            document.querySelector('.nav-btn[data-target="dashboard"]').click();
+            
+        } catch (error) {
+            console.error('Erro ao salvar veículo:', error);
+            alert('Erro ao salvar viatura. Verifique se a placa já existe.');
+        }
+    });
+}
+
+// --- DASHBOARD/CADASTRO: EXIBIÇÃO DE VEÍCULOS E ALERTA DE ÓLEO (E BOTÃO DE EXCLUSÃO) ---
+async function loadVeiculosList() {
+    const veiculos = await getAllVeiculos();
+    
+    const dashboardListElement = document.getElementById('movimentacoes-list');
+    const deleteListElement = document.getElementById('delete-veiculo-list');
+    
+    // Verifica se estamos na página de Cadastro de Veículo (onde o botão Excluir deve aparecer)
+    const isCadastroPage = !document.getElementById('cadastro-veiculo').classList.contains('hidden');
+
+    // Limpa ambas as listas no início
+    dashboardListElement.innerHTML = ''; 
+    deleteListElement.innerHTML = ''; 
+
+    if (veiculos.length === 0) {
+        const msg = '<div class="card card-placeholder">Nenhuma viatura cadastrada.</div>';
+        dashboardListElement.innerHTML = msg;
+        deleteListElement.innerHTML = msg;
+        return;
+    }
+    
+    // 1. Renderiza os cards para o Dashboard (Visão geral e Status) e, se necessário, com botão de exclusão
+    veiculos.forEach(v => {
+        const kmRodadoAposTroca = v.km_atual - v.km_ultima_troca;
+        const precisaTrocar = kmRodadoAposTroca >= 10000;
         
-        <header class="app-header">
-            <h1>
-                <i class="fas fa-car-side"></i> 
-                Japan Security Car
-            </h1>
-        </header>
+        const corAlerta = precisaTrocar ? 'var(--color-primary-solid)' : 'var(--color-success)'; 
         
-        <section id="dashboard" class="page">
-            <h2>Dashboard de Viaturas</h2>
-            <div id="movimentacoes-list">
-                <div class="card card-placeholder">Carregando viaturas...</div>
+        const cardHTML = `
+            <div class="card" style="border-left-color: ${corAlerta};">
+                <h3 style="display: flex; justify-content: space-between; align-items: center;">
+                    PLACA: ${v.placa}
+                    ${isCadastroPage ? 
+                        // Se estiver na tela de Cadastro, adiciona o botão de Excluir ao card
+                        `<button class="btn btn-danger delete-veiculo-btn" data-placa="${v.placa}" style="width: auto; padding: 5px 10px; margin: 0; font-size: 12px;">Excluir</button>` 
+                        : ''}
+                </h3>
+                <p>Modelo: ${v.modelo}</p>
+                <p>KM Atual: <strong>${v.km_atual.toLocaleString('pt-BR')}</strong></p>
+                <p style="color: ${corAlerta}; font-size: 14px; font-weight: bold;">
+                    Status Óleo: ${precisaTrocar ? '🚨 TROCA NECESSÁRIA!' : `OK (Próx. KM: ${(v.km_ultima_troca + 10000).toLocaleString('pt-BR')})`}
+                </p>
             </div>
-        </section>
-
-        <section id="cadastro-veiculo" class="page hidden">
-            <h2>Cadastro de Veículos</h2>
-            
-            <form id="form-cadastro-veiculo">
-                <label for="veiculo-placa">Placa:</label>
-                <input type="text" id="veiculo-placa" required maxlength="7">
-                
-                <label for="veiculo-modelo">Modelo/Descrição:</label>
-                <input type="text" id="veiculo-modelo" required>
-                
-                <label for="veiculo-km">KM Inicial:</label>
-                <input type="number" id="veiculo-km" min="0" required>
-                
-                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Salvar Veículo</button>
-            </form>
-
-            <h3 style="margin-top: 30px; text-align: center;">Excluir Veículo</h3>
-            
-            <div class="card" style="border-left: 8px solid var(--color-danger);">
-                <label for="select-veiculos-delete">Selecione para Excluir:</label>
-                <div id="delete-veiculo-list">
-                    <div class="card card-placeholder">Lista de exclusão carregada no Dashboard.</div>
-                </div>
-            </div>
-
-            <button type="button" class="btn btn-back" onclick="document.querySelector('.nav-btn[data-target=\'dashboard\']').click();" style="margin-top: 20px;">
-                <i class="fas fa-arrow-left"></i> Voltar
-            </button>
-        </section>
-
-        <section id="movimentacao" class="page hidden">
-            <h2>Registro de Movimentação</h2>
-            
-            <form id="form-movimentacao">
-                <label for="mov-placa">Viatura (Placa):</label>
-                <select id="mov-placa" required>
-                    <option value="">Selecione a Viatura</option>
-                </select>
-
-                <label for="mov-tipo">Tipo de Movimentação:</label>
-                <select id="mov-tipo" required>
-                    <option value="saida">Saída (Início do Serviço)</option>
-                    <option value="entrada">Entrada (Fim do Serviço)</option>
-                </select>
-
-                <label for="mov-data-hora">Data e Hora:</label>
-                <input type="datetime-local" id="mov-data-hora" required>
-
-                <label for="mov-motorista">Motorista/Responsável:</label>
-                <input type="text" id="mov-motorista" required>
-
-                <label for="mov-km-atual">KM Atual (Obrigatório na Entrada):</label>
-                <input type="number" id="mov-km-atual" min="0" placeholder="Apenas para Entrada" required>
-                
-                <label>Checklist de Vistoria (Marque o que está OK):</label>
-                <div id="mov-checklist-container">
-                    <div class="checklist-item">
-                        <input type="checkbox" id="check-oleo">
-                        <label for="check-oleo">Óleo</label>
-                    </div>
-                    <div class="checklist-item">
-                        <input type="checkbox" id="check-agua">
-                        <label for="check-agua">Água</label>
-                    </div>
-                    <div class="checklist-item">
-                        <input type="checkbox" id="check-pneus">
-                        <label for="check-pneus">Pneus</label>
-                    </div>
-                    <div class="checklist-item">
-                        <input type="checkbox" id="check-combustivel">
-                        <label for="check-combustivel">Combustível</label>
-                    </div>
-                    <div class="checklist-item">
-                        <input type="checkbox" id="check-documentos">
-                        <label for="check-documentos">Documentos</label>
-                    </div>
-                    <div class="checklist-item">
-                        <input type="checkbox" id="check-limpeza">
-                        <label for="check-limpeza">Limpeza</label>
-                    </div>
-                </div>
-
-                <label for="mov-observacao">Observações (Opcional):</label>
-                <textarea id="mov-observacao" rows="3"></textarea>
-
-                <label>Assinatura do Motorista:</label>
-                <canvas id="signature-pad" width="300" height="150"></canvas>
-                <button type="button" id="clear-signature" class="btn btn-secondary" style="color: var(--color-secondary-solid); border-color: var(--color-secondary-solid); margin-bottom: 20px;">Limpar Assinatura</button>
-
-                <button type="submit" class="btn btn-primary"><i class="fas fa-clipboard-list"></i> Registrar Movimentação</button>
-            </form>
-        </section>
-
-        <section id="historico" class="page hidden">
-            <h2>Histórico e Auditoria</h2>
-            
-            <h3 style="margin-top: 10px;">Consulta Rápida de KM</h3>
-            <div class="card" style="border-left: 8px solid var(--color-secondary-solid); margin-bottom: 20px;">
-                <label for="select-veiculos-km">Viatura:</label>
-                <select id="select-veiculos-km">
-                    <option value="">Selecione a Placa</option>
-                </select>
-                <div id="veiculo-km-info" style="margin-top: 10px;">Selecione um veículo acima.</div>
-            </div>
-
-            <h3 style="margin-top: 20px;">Filtro de Auditoria</h3>
-            <div class="card" style="border-left: 8px solid var(--color-primary-solid);">
-                <label for="filtro-veiculo">Viatura:</label>
-                <select id="filtro-veiculo">
-                    <option value="">Todas as Viaturas</option>
-                </select>
-
-                <label for="filtro-data-inicio" style="margin-top: 10px;">Data Início:</label>
-                <input type="date" id="filtro-data-inicio">
-
-                <label for="filtro-data-fim" style="margin-top: 10px;">Data Fim:</label>
-                <input type="date" id="filtro-data-fim">
-
-                <button id="btn-buscar-auditoria" class="btn btn-primary" style="margin-top: 15px;"><i class="fas fa-search"></i> Buscar Registros</button>
-            </div>
-
-            <div class="action-group">
-                <button id="btn-download-pdf" class="btn btn-back"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
-                <button id="btn-download-excel" class="btn btn-back"><i class="fas fa-file-excel"></i> Exportar Excel</button>
-            </div>
-
-            <div id="resultados-auditoria" style="margin-top: 20px;">
-                <div class="card card-placeholder">Faça uma busca para exibir o histórico.</div>
-            </div>
-        </section>
-
-        <section id="atualizacao-km" class="page hidden">
-            <h2>Atualização de KM (Vistoria Noturna)</h2>
-
-            <form id="form-atualizacao-km">
-                <label for="update-placa">Viatura (Placa):</label>
-                <select id="update-placa" required>
-                    <option value="">Selecione a Viatura</option>
-                </select>
-
-                <div id="km-info-display" style="margin-top: 10px; margin-bottom: 10px; color: var(--color-secondary-solid);">Selecione um veículo acima.</div>
-                
-                <label for="update-km-novo">Novo KM Atual:</label>
-                <input type="number" id="update-km-novo" min="0" required placeholder="Insira o KM atual (Deve ser maior ou igual ao KM anterior)">
-                
-                <button type="submit" class="btn btn-primary" style="margin-top: 15px;"><i class="fas fa-sync"></i> Atualizar KM</button>
-            </form>
-        </section>
-
-    </div>
+        `;
+        
+        // Renderiza no Dashboard OU na Lista de Exclusão (Cadastro)
+        if (isCadastroPage) {
+            deleteListElement.insertAdjacentHTML('beforeend', cardHTML);
+        } else {
+            dashboardListElement.insertAdjacentHTML('beforeend', cardHTML);
+        }
+    });
     
-    <button id="fab-action"> 
-        <i class="fas fa-plus"></i>
-    </button>
+    // 2. Lógica Específica para a Tela de Cadastro (Adiciona listeners de exclusão)
+    if (isCadastroPage) {
+        deleteListElement.querySelectorAll('.delete-veiculo-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const placa = e.target.getAttribute('data-placa');
+                if (confirm(`Tem certeza que deseja EXCLUIR o veículo ${placa} e todo seu histórico? Esta ação é irreversível!`)) {
+                    try {
+                        await deleteVeiculo(placa); 
+                        alert(`Veículo ${placa} excluído com sucesso.`);
+                        // Recarrega todas as listas
+                        loadVeiculosList(); 
+                        loadVeiculosForMovimentacao(); 
+                        loadVeiculosForHistorico(); 
+                        loadVeiculosForKmUpdate(); 
+                    } catch (error) {
+                        alert('Erro ao excluir veículo.');
+                        console.error('Erro ao excluir veículo:', error);
+                    }
+                }
+            });
+        });
+    }
+}
 
-    <nav>
-        <button class="nav-btn active" data-target="dashboard">
-            <i class="fas fa-home"></i>
-            Dashboard
-        </button>
-        <button class="nav-btn" data-target="cadastro-veiculo">
-            <i class="fas fa-car"></i>
-            Viatura
-        </button>
-        <button class="nav-btn" data-target="historico">
-            <i class="fas fa-history"></i>
-            Histórico
-        </button>
-        <button class="nav-btn" data-target="atualizacao-km">
-            <i class="fas fa-tachometer-alt"></i>
-            KM Vistoria
-        </button>
-    </nav>
+
+// --- MOVIMENTAÇÃO: CARREGAR VEÍCULOS NO SELECT ---
+async function loadVeiculosForMovimentacao() {
+    const select = document.getElementById('mov-placa');
+    const veiculos = await getAllVeiculos();
+
+    while (select.options.length > 1) {
+        select.remove(1);
+    }
+
+    veiculos.forEach(v => {
+        const option = document.createElement('option');
+        option.value = v.placa;
+        option.textContent = `${v.placa} - ${v.modelo} (KM: ${v.km_atual.toLocaleString('pt-BR')})`;
+        select.appendChild(option);
+    });
+}
+
+// --- MOVIMENTAÇÃO: CONFIGURAÇÃO DO FORMULÁRIO E ASSINATURA ---
+function setupMovimentacaoForm() {
+    const form = document.getElementById('form-movimentacao');
+    const canvas = document.getElementById('signature-pad');
+    const clearButton = document.getElementById('clear-signature');
+    const ctx = canvas.getContext('2d');
+    let drawing = false;
+
+    const selectPlacaMov = document.getElementById('mov-placa');
+    const kmInputMov = document.getElementById('mov-km-atual');
+
+    // -------------------------------------------------------------
+    // OTIMIZAÇÃO E REDIMENSIONAMENTO DO CANVAS (DPR)
+    // -------------------------------------------------------------
+    function resizeCanvas() {
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        
+        canvas.width = canvas.offsetWidth * ratio;
+        canvas.height = canvas.offsetHeight * ratio;
+        
+        ctx.scale(ratio, ratio);
+        
+        // CORREÇÃO DE ESTILO: Assinatura em branco para fundo escuro
+        ctx.strokeStyle = 'white'; 
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height); 
+    }
     
-    <script src="db.js" type="module"></script>
-    <script type="module" src="app.js"></script>
-</body>
-</html>
+    // Inicializa e monitora o redimensionamento
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas(); 
+    
+    // -------------------------------------------------------------
+    // Lógica de Preencher o KM
+    // -------------------------------------------------------------
+    selectPlacaMov.addEventListener('change', async (e) => {
+        const placa = e.target.value;
+        kmInputMov.value = ''; 
+
+        if (placa) {
+            const veiculo = await getVeiculoByPlaca(placa);
+            if (veiculo) {
+                // Apenas preenche o KM anterior na SAÍDA. Na ENTRADA, o usuário deve atualizar.
+                // Mas define o KM MÍNIMO
+                kmInputMov.setAttribute('min', veiculo.km_atual);
+                
+                if (document.getElementById('mov-tipo').value === 'saida') {
+                    kmInputMov.value = veiculo.km_atual;
+                }
+            }
+        }
+    });
+    
+    document.getElementById('mov-tipo').addEventListener('change', async (e) => {
+        const tipo = e.target.value;
+        const placa = selectPlacaMov.value;
+        kmInputMov.value = '';
+
+        if (placa) {
+            const veiculo = await getVeiculoByPlaca(placa);
+            if (veiculo) {
+                kmInputMov.setAttribute('min', veiculo.km_atual);
+                if (tipo === 'saida') {
+                    kmInputMov.value = veiculo.km_atual;
+                }
+            }
+        }
+    });
+
+    // -------------------------------------------------------------
+    // Lógica de Desenho (Touch e Mouse)
+    // -------------------------------------------------------------
+    function getCursorPosition(e) {
+        const rect = canvas.getBoundingClientRect();
+        let x, y;
+
+        if (e.touches && e.touches.length > 0) {
+            x = e.touches[0].clientX - rect.left;
+            y = e.touches[0].clientY - rect.top;
+        } else {
+            x = e.clientX - rect.left;
+            y = e.clientY - rect.top;
+        }
+        return { x, y };
+    }
+
+    function startPosition(e) { 
+        e.preventDefault(); 
+        drawing = true; 
+        const { x, y } = getCursorPosition(e);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+    }
+    
+    function endPosition() { 
+        drawing = false; 
+    }
+    
+    function draw(e) {
+        if (!drawing) return;
+        e.preventDefault(); 
+        
+        const { x, y } = getCursorPosition(e);
+        
+        ctx.lineTo(x, y);
+        ctx.stroke();
+    }
+
+    canvas.addEventListener('mousedown', startPosition);
+    canvas.addEventListener('mouseup', endPosition);
+    canvas.addEventListener('mousemove', draw);
+    
+    // Eventos Touch: com passive: false para impedir rolagem da página ao assinar
+    canvas.addEventListener('touchstart', startPosition, { passive: false });
+    canvas.addEventListener('touchend', endPosition, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    
+    // Botão Limpar
+    clearButton.addEventListener('click', () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        resizeCanvas(); 
+    });
+
+    // --- SALVAR MOVIMENTAÇÃO (com Lógica de KM e Alerta) ---
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const placa = selectPlacaMov.value;
+        const motorista = document.getElementById('mov-motorista').value;
+        const tipo = document.getElementById('mov-tipo').value;
+        const dataHora = document.getElementById('mov-data-hora').value; 
+        const observacao = document.getElementById('mov-observacao').value;
+        const kmAtualMovimentacao = parseInt(kmInputMov.value, 10);
+        
+        if (tipo === 'entrada' && (isNaN(kmAtualMovimentacao) || kmAtualMovimentacao <= 0)) {
+            alert('Por favor, informe a KM Atual para a Entrada da Viatura.');
+            return;
+        }
+        
+        if (!placa || !motorista || !dataHora) {
+             alert('Por favor, preencha a placa, motorista e data/hora.');
+             return;
+        }
+
+        const checklistItems = document.querySelectorAll('#mov-checklist-container input[type="checkbox"]:checked'); 
+        const checklist = Array.from(checklistItems).map(item => item.parentElement.querySelector('label').textContent); 
+
+        const assinaturaDataUrl = canvas.toDataURL('image/png');
+        
+        const dataHoraISO = new Date(dataHora).toISOString();
+        
+        const novaMovimentacao = {
+            placa_veiculo: placa,
+            motorista: motorista,
+            tipo: tipo,
+            data_hora: dataHoraISO, 
+            checklist: checklist,
+            observacao: observacao,
+            assinatura: assinaturaDataUrl, 
+            km_atual: tipo === 'entrada' ? kmAtualMovimentacao : null 
+        };
+
+        try {
+            if (tipo === 'entrada') {
+                const veiculo = await getVeiculoByPlaca(placa);
+                
+                if (kmAtualMovimentacao < veiculo.km_atual) {
+                    alert('ERRO: O KM atual inserido é menor que o KM registrado anteriormente. Verifique o valor.');
+                    return;
+                }
+                
+                const kmRodado = kmAtualMovimentacao - veiculo.km_ultima_troca;
+
+                if (kmRodado >= 10000) {
+                    const confirmarTroca = confirm(`🚨 ALERTA: Esta viatura rodou ${kmRodado.toLocaleString('pt-BR')} km desde a última troca de óleo.
+                    
+                    KM ATUAL: ${kmAtualMovimentacao.toLocaleString('pt-BR')}
+                    
+                    A troca de óleo foi realizada agora? (Clique em OK se sim, Cancelar se a troca não foi feita)`);
+
+                    if (confirmarTroca) {
+                        // Passa o novo KM como KM da última troca (reseta o contador)
+                        await updateVeiculoKm(placa, kmAtualMovimentacao, kmAtualMovimentacao);
+                    } else {
+                        // Mantém o KM da última troca anterior
+                        await updateVeiculoKm(placa, kmAtualMovimentacao, null); 
+                    }
+                } else {
+                    // Atualiza apenas o KM atual
+                    await updateVeiculoKm(placa, kmAtualMovimentacao, null); 
+                }
+            }
+            
+            await saveMovimentacao(novaMovimentacao);
+            alert(`Movimentação de ${tipo.toUpperCase()} da placa ${placa} registrada com sucesso!`);
+            
+            form.reset();
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            resizeCanvas(); 
+            kmInputMov.value = ''; 
+            
+            loadVeiculosList(); // Atualiza dashboard
+            document.querySelector('.nav-btn[data-target="dashboard"]').click(); 
+
+        } catch (error) {
+            console.error('Erro ao salvar movimentação:', error);
+            alert(`Erro ao salvar movimentação: ${error.message || 'Consulte o console.'}`);
+        }
+    });
+}
+
+// --- HISTÓRICO: Carregar Veículos para Pesquisa ---
+async function loadVeiculosForHistorico() {
+    const veiculos = await getAllVeiculos();
+    
+    const selectKM = document.getElementById('select-veiculos-km');
+    const selectFiltro = document.getElementById('filtro-veiculo');
+    
+    [selectKM, selectFiltro].forEach(select => {
+        while (select.options.length > 1) {
+            select.remove(1);
+        }
+    });
+
+    veiculos.forEach(v => {
+        const option = document.createElement('option');
+        option.value = v.placa;
+        option.textContent = `${v.placa} - ${v.modelo}`;
+        
+        selectKM.appendChild(option.cloneNode(true)); 
+        selectFiltro.appendChild(option); 
+    });
+}
+
+// --- HISTÓRICO: Pesquisa de KM Rápida ---
+function setupPesquisaKmRapida() {
+    const selectKM = document.getElementById('select-veiculos-km');
+    const infoDiv = document.getElementById('veiculo-km-info');
+
+    selectKM.addEventListener('change', async (e) => {
+        const placa = e.target.value;
+        infoDiv.innerHTML = '';
+        
+        if (!placa) {
+            infoDiv.innerHTML = 'Selecione um veículo acima.';
+            return;
+        }
+
+        try {
+            const veiculo = await getVeiculoByPlaca(placa);
+            if (veiculo) {
+                const kmRodadoAposTroca = veiculo.km_atual - veiculo.km_ultima_troca;
+                const precisaTrocar = kmRodadoAposTroca >= 10000; 
+                
+                const corAlerta = precisaTrocar ? 'var(--color-primary-solid)' : 'var(--color-success)';
+
+                infoDiv.innerHTML = `
+                    <p><strong>KM Atual:</strong> ${veiculo.km_atual.toLocaleString('pt-BR')}</p>
+                    <p><strong>KM Última Troca:</strong> ${veiculo.km_ultima_troca.toLocaleString('pt-BR')}</p>
+                    <p style="color: ${corAlerta};"><strong>Status Óleo:</strong> ${precisaTrocar ? '🚨 TROCA NECESSÁRIA!' : 'OK'}</p>
+                `;
+            }
+        } catch (error) {
+            infoDiv.innerHTML = `<p style="color: var(--color-primary-solid);">Erro ao buscar informações.</p>`;
+            console.error('Erro na pesquisa rápida de KM:', error);
+        }
+    });
+}
+
+// --- HISTÓRICO: Lógica de Auditoria e Associações (E BOTÃO DE EXCLUSÃO) ---
+async function buscarMovimentacoesAuditoria() {
+    const placaFiltro = document.getElementById('filtro-veiculo').value;
+    const dataInicioStr = document.getElementById('filtro-data-inicio').value;
+    const dataFimStr = document.getElementById('filtro-data-fim').value;
+    const resultadosDiv = document.getElementById('resultados-auditoria');
+    
+    resultadosDiv.innerHTML = '<div class="card card-placeholder">Buscando...</div>';
+
+    let movimentacoes = await getAllMovimentacoes();
+
+    // 1. Filtrar
+    movimentacoes = movimentacoes.filter(mov => {
+        let passaFiltro = true;
+        const dataMov = new Date(mov.data_hora).getTime();
+        
+        if (placaFiltro && mov.placa_veiculo !== placaFiltro) {
+            passaFiltro = false;
+        }
+        
+        if (dataInicioStr) {
+            const dataInicio = new Date(dataInicioStr).getTime();
+            if (dataMov < dataInicio) passaFiltro = false;
+        }
+
+        if (dataFimStr) {
+            // Adiciona um dia à data fim para incluir o dia inteiro no filtro
+            const dataFim = new Date(dataFimStr);
+            dataFim.setDate(dataFim.getDate() + 1);
+            if (dataMov >= dataFim.getTime()) passaFiltro = false;
+        }
+
+        return passaFiltro;
+    });
+
+    // 2. Ordenar por data
+    movimentacoes.sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
+    
+    lastSearchResult = movimentacoes;
+
+    // 3. Renderizar resultados
+    resultadosDiv.innerHTML = '';
+    
+    if (movimentacoes.length === 0) {
+        resultadosDiv.innerHTML = '<div class="card card-placeholder">Nenhuma movimentação encontrada com os filtros.</div>';
+        return;
+    }
+    
+    movimentacoes.forEach(mov => {
+        const isSaida = mov.tipo === 'saida';
+        const card = document.createElement('div');
+        card.classList.add('card');
+        
+        // Cor do card baseada no tipo de movimentação
+        card.style.borderLeftColor = isSaida ? 'var(--color-primary-solid)' : 'var(--color-success)'; 
+        
+        const dataLocal = new Date(mov.data_hora).toLocaleString('pt-BR'); 
+
+        card.innerHTML = `
+            <h3 style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: ${isSaida ? 'var(--color-primary-solid)' : 'var(--color-success)'};">
+                    ${isSaida ? 'SAÍDA' : 'ENTRADA'} - ${mov.placa_veiculo}
+                </span>
+                <button class="btn delete-mov-btn" data-id="${mov.id}" style="width: auto; padding: 5px 10px; margin: 0; background-color: #8B0000; font-size: 12px;">Excluir</button>
+            </h3>
+            <p style="font-size: 10px; color: #888;">ID: ${mov.id}</p>
+            <p><strong>Motorista:</strong> ${mov.motorista}</p>
+            <p><strong>Data/Hora:</strong> ${dataLocal}</p>
+            ${mov.km_atual ? `<p><strong>KM:</strong> ${mov.km_atual.toLocaleString('pt-BR')}</p>` : ''}
+            <p><strong>Checklist:</strong> ${mov.checklist.join(', ') || 'Nenhum item marcado'}</p>
+            <p><strong>Obs:</strong> ${mov.observacao || 'Nenhuma'}</p>
+            <details style="margin-top: 10px; color: var(--color-secondary-solid);">
+                <summary>Visualizar Assinatura</summary>
+                <img src="${mov.assinatura}" alt="Assinatura Digital" style="max-width: 100%; height: auto; background: white; margin-top: 5px; border-radius: 5px; border: 1px solid #ddd;">
+            </details>
+        `;
+        resultadosDiv.appendChild(card);
+    });
+
+    // Adicionar listener de exclusão para o histórico APÓS a renderização:
+    resultadosDiv.querySelectorAll('.delete-mov-btn').forEach(button => {
+        button.addEventListener('click', async (e) => {
+            const id = parseInt(e.target.getAttribute('data-id'), 10);
+            if (confirm(`Tem certeza que deseja EXCLUIR o registro de movimentação ID: ${id}?`)) {
+                await deleteMovimentacao(id); 
+            }
+        });
+    });
+}
+
+// --- FUNÇÃO DE EXCLUSÃO DE MOVIMENTAÇÃO ---
+async function deleteMovimentacao(id) {
+    try {
+        await deleteMovimentacaoById(id);
+        alert(`Registro ID: ${id} excluído com sucesso.`);
+        buscarMovimentacoesAuditoria(); // Recarrega a lista
+    } catch (error) {
+        alert('Erro ao excluir registro. Verifique o console.');
+        console.error('Erro ao excluir movimentação:', error);
+    }
+}
+
+
+// --- HISTÓRICO: Configuração Final ---
+function setupHistorico() {
+    loadVeiculosForHistorico();
+    setupPesquisaKmRapida();
+    
+    document.getElementById('btn-buscar-auditoria').addEventListener('click', buscarMovimentacoesAuditoria);
+    
+    document.getElementById('btn-download-pdf').addEventListener('click', () => exportToPDF(lastSearchResult));
+    document.getElementById('btn-download-excel').addEventListener('click', () => exportToExcel(lastSearchResult));
+}
+
+// --- FUNÇÕES DE EXPORTAÇÃO ---
+
+// FUNÇÃO ATUALIZADA: Agrupa dados por veículo para o PDF.
+function exportToPDF(data) {
+    if (typeof window.jspdf === 'undefined' || !data || data.length === 0) {
+        alert('Faça uma busca antes de exportar! (Verifique se os CDNs do PDF estão carregados)');
+        return;
+    }
+    
+    const { jsPDF } = window.jspdf;
+    // @ts-ignore
+    const doc = new jsPDF('landscape'); 
+    
+    doc.setFontSize(16);
+    doc.text("Relatório de Auditoria - Japan Security Car", 10, 10);
+    doc.setFontSize(10);
+    doc.text(`Data de Geração: ${new Date().toLocaleString('pt-BR')}`, 10, 15);
+    
+    // 1. AGRUPAR DADOS POR PLACA
+    const groupedData = data.reduce((acc, mov) => {
+        const placa = mov.placa_veiculo;
+        if (!acc[placa]) {
+            acc[placa] = [];
+        }
+        acc[placa].push(mov);
+        return acc;
+    }, {});
+    
+    let tableRows = [];
+    let finalData = [];
+    
+    // 2. ITERAR SOBRE OS GRUPOS E PREPARAR DADOS DE FORMA ORGANIZADA
+    for (const placa in groupedData) {
+        // Adiciona um separador visual no PDF
+        finalData.push({ isSeparator: true, placa: placa });
+        
+        // Adiciona todas as movimentações do veículo
+        groupedData[placa].forEach(mov => {
+            finalData.push(mov);
+        });
+    }
+
+    // 3. MONTAR AS LINHAS PARA O PDF ORGANIZADAS
+    finalData.forEach(item => {
+        if (item.isSeparator) {
+            // Linha Separadora (Cabeçalho do Veículo)
+            tableRows.push([
+                { content: `VEÍCULO: ${item.placa}`, colSpan: 8, styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } }
+            ]);
+        } else {
+            // Linha de Movimentação
+            const movData = [
+                item.id,
+                item.placa_veiculo,
+                item.tipo.toUpperCase(),
+                item.motorista,
+                new Date(item.data_hora).toLocaleString('pt-BR'),
+                item.km_atual ? item.km_atual.toLocaleString('pt-BR') : '-',
+                item.checklist.join(', '),
+                item.observacao ? item.observacao.substring(0, 30) + (item.observacao.length > 30 ? '...' : '') : '-'
+            ];
+            tableRows.push(movData);
+        }
+    });
+
+
+    const tableColumn = ["ID", "Placa", "Tipo", "Motorista", "Data/Hora", "KM", "Checklist", "Observação"];
+
+    // @ts-ignore
+    doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 25, 
+        theme: 'striped',
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [229, 57, 53] } // Corrigido para a cor primária (Vermelho)
+    });
+    
+    doc.save("auditoria_jscar_organizada.pdf");
+    alert('PDF gerado com sucesso, organizado por veículo!');
+}
+
+function exportToExcel(data) {
+    if (typeof window.XLSX === 'undefined' || !data || data.length === 0) {
+        alert('Faça uma busca antes de exportar! (Verifique se o CDN do Excel está carregado)');
+        return;
+    }
+    
+    const worksheet = XLSX.utils.json_to_sheet(data.map(mov => ({
+        ID: mov.id,
+        Placa: mov.placa_veiculo,
+        Tipo: mov.tipo.toUpperCase(),
+        Motorista: mov.motorista,
+        DataHora: new Date(mov.data_hora).toLocaleString('pt-BR'),
+        KM: mov.km_atual || '0',
+        Checklist: mov.checklist.join(' | '),
+        Observacao: mov.observacao || '',
+    })));
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Auditoria");
+
+    XLSX.writeFile(workbook, "auditoria_jscar.xlsx");
+    alert('Excel gerado com sucesso!');
+}
+
+
+// --- NOVAS FUNÇÕES PARA ATUALIZAÇÃO DE KM (VISTORIA NOTURNA) ---
+
+// Carrega o <select> da tela de Atualização de KM
+async function loadVeiculosForKmUpdate() {
+    const select = document.getElementById('update-placa');
+    const veiculos = await getAllVeiculos();
+
+    while (select.options.length > 1) {
+        select.remove(1);
+    }
+
+    veiculos.forEach(v => {
+        const option = document.createElement('option');
+        option.value = v.placa;
+        option.textContent = `${v.placa} - ${v.modelo}`;
+        select.appendChild(option);
+    });
+}
+
+// Lógica principal da tela de Atualização de KM
+function setupAtualizacaoKm() {
+    const selectPlaca = document.getElementById('update-placa');
+    const kmInfoDiv = document.getElementById('km-info-display');
+    const form = document.getElementById('form-atualizacao-km');
+    const novoKmInput = document.getElementById('update-km-novo');
+
+    // Listener para exibir o KM atual ao selecionar a placa
+    selectPlaca.addEventListener('change', async (e) => {
+        const placa = e.target.value;
+        kmInfoDiv.innerHTML = '';
+        novoKmInput.value = '';
+
+        if (placa) {
+            const veiculo = await getVeiculoByPlaca(placa);
+            if (veiculo) {
+                kmInfoDiv.innerHTML = `<p>KM Atual Registrado: <strong>${veiculo.km_atual.toLocaleString('pt-BR')}</strong></p>`;
+                
+                // Define o KM mínimo para o novo registro, prevenindo valores retroativos
+                novoKmInput.setAttribute('min', veiculo.km_atual);
+            }
+        }
+    });
+
+    // Listener para o formulário de salvamento
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const placa = selectPlaca.value;
+        const novoKm = parseInt(novoKmInput.value, 10);
+        
+        if (!placa || isNaN(novoKm)) {
+            alert('Por favor, selecione o veículo e insira um KM válido.');
+            return;
+        }
+
+        try {
+            // Reutilizamos a função updateVeiculoKm (sem atualizar a KM de última troca, passando null)
+            await updateVeiculoKm(placa, novoKm, null); 
+            alert(`KM da viatura ${placa} atualizado para ${novoKm.toLocaleString('pt-BR')} com sucesso!`);
+            
+            form.reset();
+            kmInfoDiv.innerHTML = '';
+            novoKmInput.removeAttribute('min'); 
+            
+            loadVeiculosList(); // Atualiza dashboard
+            loadVeiculosForMovimentacao(); // Atualiza select de movimentação
+            loadVeiculosForKmUpdate(); // Recarrega o select desta tela
+            
+        } catch (error) {
+            alert('Erro ao atualizar KM. Verifique o console.');
+            console.error('Erro ao atualizar KM:', error);
+        }
+    });
+}
