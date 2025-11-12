@@ -6,7 +6,8 @@
     <title>Japan Security Car - Controle de Frotas</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <meta name="theme-color" content="#E53935"/> <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#E53935"/> 
+    <link rel="manifest" href="manifest.json">
 </head>
 <body>
 
@@ -15,6 +16,7 @@
     </header>
 
     <main class="container">
+        
         <section id="dashboard" class="page">
             <h2>Dashboard</h2>
             <div id="movimentacoes-list" class="list-container">
@@ -85,14 +87,28 @@
                 </div>
                 
                 <h3>Checklist</h3>
-                <div id="mov-checklist" class="checklist-group">
-                    <input type="checkbox" id="check-pneus" value="Pneus"> <label for="check-pneus">Pneus (Calibragem/Avarias)</label><br>
-                    <input type="checkbox" id="check-oleo" value="Óleo/Água"> <label for="check-oleo">Nível Óleo/Água</label><br>
-                    <input type="checkbox" id="check-documentos" value="Documentos"> <label for="check-documentos">Documentos do veículo</label><br>
-                    <input type="checkbox" id="check-limpeza" value="Limpeza"> <label for="check-limpeza">Limpeza interna/externa</label><br>
-                    <input type="checkbox" id="check-combustivel" value="Combustível"> <label for="check-combustivel">Combustível</label><br>
+                <div id="mov-checklist-container">
+                    <div class="checklist-item-card">
+                        <input type="checkbox" id="check-pneus" value="Pneus"> 
+                        <label for="check-pneus">Pneus (Calibragem/Avarias)</label>
+                    </div>
+                    <div class="checklist-item-card">
+                        <input type="checkbox" id="check-oleo" value="Óleo/Água"> 
+                        <label for="check-oleo">Nível Óleo/Água</label>
+                    </div>
+                    <div class="checklist-item-card">
+                        <input type="checkbox" id="check-documentos" value="Documentos"> 
+                        <label for="check-documentos">Documentos do veículo</label>
+                    </div>
+                    <div class="checklist-item-card">
+                        <input type="checkbox" id="check-limpeza" value="Limpeza"> 
+                        <label for="check-limpeza">Limpeza interna/externa</label>
+                    </div>
+                    <div class="checklist-item-card">
+                        <input type="checkbox" id="check-combustivel" value="Combustível"> 
+                        <label for="check-combustivel">Combustível</label>
+                    </div>
                 </div>
-
                 <div class="form-group">
                     <label for="mov-observacao">Observação:</label>
                     <textarea id="mov-observacao" placeholder="Condição geral, ocorrências..."></textarea>
@@ -100,8 +116,8 @@
                 
                 <h3>Assinatura do Motorista/Responsável</h3>
                 <div class="signature-pad-container">
-                    <canvas id="signature-pad" width="300" height="150" style="border: 1px solid #ccc; background-color: white;"></canvas>
-                    <button type="button" id="clear-signature" class="btn btn-secondary" style="margin-top: 5px;">Limpar Assinatura</button>
+                    <canvas id="signature-pad" width="300" height="150"></canvas> 
+                    <button type="button" id="clear-signature" class="btn btn-secondary">Limpar Assinatura</button>
                 </div>
 
                 <button type="submit" class="btn btn-primary" style="margin-top: 15px;">Registrar Movimentação</button>
@@ -220,22 +236,17 @@
             const fabButton = document.getElementById('fab-action');
             const pages = document.querySelectorAll('.page');
             
-            // Função para alternar a página
             const showPage = (targetId) => {
                 pages.forEach(page => {
-                    // Esconde todas as páginas
                     page.classList.add('hidden');
                 });
                 
-                // Exibe a página alvo
                 const targetPage = document.getElementById(targetId);
                 if (targetPage) {
                     targetPage.classList.remove('hidden');
-                    // Rola para o topo quando muda de página (UX de App)
                     window.scrollTo(0, 0); 
                 }
                 
-                // Atualiza o estado ativo dos botões de navegação
                 navButtons.forEach(btn => btn.classList.remove('active'));
                 const activeBtn = document.querySelector(`.nav-btn[data-target="${targetId}"]`);
                 if (activeBtn) {
@@ -243,7 +254,6 @@
                 }
             };
 
-            // Event listener para os botões de navegação
             navButtons.forEach(button => {
                 button.addEventListener('click', () => {
                     const targetPage = button.getAttribute('data-target');
@@ -251,13 +261,11 @@
                 });
             });
 
-            // Event listener para o FAB, que deve levar à página de Movimentação
             fabButton.addEventListener('click', () => {
                 const targetPage = fabButton.getAttribute('data-target');
                 showPage(targetPage);
             });
             
-            // Inicializa mostrando a Dashboard
             showPage('dashboard');
         });
     </script>
