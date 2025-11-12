@@ -51,7 +51,7 @@ header h1 {
     padding: 20px 0;
 }
 
-/* Regra essencial para esconder as abas não selecionadas */
+/* Regra essencial para esconder as abas não selecionadas (O QUE PROVAVELMENTE ESTAVA DESCONFIGURANDO) */
 .hidden {
     display: none !important; 
 }
