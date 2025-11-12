@@ -236,7 +236,7 @@ nav {
     color: var(--color-primary-solid);
 }
 
-/* ⭐ CORREÇÃO: Floating Action Button (FAB) */
+/* Floating Action Button (FAB) */
 #fab-action {
     position: fixed;
     bottom: 75px; 
