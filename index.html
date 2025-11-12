@@ -6,8 +6,7 @@
     <title>Japan Security Car - Controle de Frotas</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <meta name="theme-color" content="#FF0000"/>
-    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#E53935"/> <link rel="manifest" href="manifest.json">
 </head>
 <body>
 
@@ -16,7 +15,6 @@
     </header>
 
     <main class="container">
-        
         <section id="dashboard" class="page">
             <h2>Dashboard</h2>
             <div id="movimentacoes-list" class="list-container">
@@ -48,7 +46,7 @@
 
             <h3 style="margin-top: 30px;">Viatura Cadastradas (Clique no botão para EXCLUIR)</h3>
             <div id="veiculos-list-cadastro" class="list-container">
-                <div id="movimentacoes-list"></div>
+                <div id="veiculos-list-cadastro-content"></div> 
             </div>
         </section>
 
@@ -183,7 +181,7 @@
 
     </main>
 
-    <div id="fab-action" class="fab">
+    <div id="fab-action" class="fab" data-target="movimentacao">
         <i class="fas fa-plus"></i>
     </div>
 
@@ -194,15 +192,15 @@
         </button>
         <button class="nav-btn" data-target="cadastro-veiculo">
             <i class="fas fa-car-side"></i>
-            Cadastro Viatura
+            Viatura
         </button>
         <button class="nav-btn" data-target="movimentacao">
             <i class="fas fa-exchange-alt"></i>
-            Movimentação
+            Movimento
         </button>
         <button class="nav-btn" data-target="atualizacao-km">
             <i class="fas fa-tachometer-alt"></i>
-            KM Vistoria
+            KM
         </button>
         <button class="nav-btn" data-target="historico">
             <i class="fas fa-history"></i>
@@ -216,5 +214,52 @@
 
     <script type="module" src="db.js"></script>
     <script type="module" src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const navButtons = document.querySelectorAll('.nav-btn');
+            const fabButton = document.getElementById('fab-action');
+            const pages = document.querySelectorAll('.page');
+            
+            // Função para alternar a página
+            const showPage = (targetId) => {
+                pages.forEach(page => {
+                    // Esconde todas as páginas
+                    page.classList.add('hidden');
+                });
+                
+                // Exibe a página alvo
+                const targetPage = document.getElementById(targetId);
+                if (targetPage) {
+                    targetPage.classList.remove('hidden');
+                    // Rola para o topo quando muda de página (UX de App)
+                    window.scrollTo(0, 0); 
+                }
+                
+                // Atualiza o estado ativo dos botões de navegação
+                navButtons.forEach(btn => btn.classList.remove('active'));
+                const activeBtn = document.querySelector(`.nav-btn[data-target="${targetId}"]`);
+                if (activeBtn) {
+                    activeBtn.classList.add('active');
+                }
+            };
+
+            // Event listener para os botões de navegação
+            navButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetPage = button.getAttribute('data-target');
+                    showPage(targetPage);
+                });
+            });
+
+            // Event listener para o FAB, que deve levar à página de Movimentação
+            fabButton.addEventListener('click', () => {
+                const targetPage = fabButton.getAttribute('data-target');
+                showPage(targetPage);
+            });
+            
+            // Inicializa mostrando a Dashboard
+            showPage('dashboard');
+        });
+    </script>
 </body>
 </html>
