@@ -1,4 +1,4 @@
-// app.js (Código completo, finalizado, com importações, agrupamento de PDF e lógica de KM Vistoria)
+// app.js (Código completo, finalizado, com todas as correções)
 
 import { 
     saveVeiculo, 
@@ -82,6 +82,7 @@ function setupNavigation() {
             if (targetPage) {
                 targetPage.classList.remove('hidden');
                 
+                // Recarrega dados relevantes ao mudar de tela
                 if (targetId === 'dashboard' || targetId === 'cadastro-veiculo') { 
                     loadVeiculosList(); 
                 } else if (targetId === 'movimentacao') {
@@ -124,7 +125,11 @@ function setupCadastroVeiculo() {
             await saveVeiculo(novoVeiculo);
             alert(`Viatura PLACA: ${placa} salva com sucesso!`);
             form.reset();
+            
+            // ⭐ AÇÃO CHAVE: Recarrega as listas e navega para o Dashboard
             loadVeiculosList(); 
+            document.querySelector('.nav-btn[data-target="dashboard"]').click();
+            
         } catch (error) {
             console.error('Erro ao salvar veículo:', error);
             alert('Erro ao salvar viatura. Verifique se a placa já existe.');
@@ -136,52 +141,62 @@ function setupCadastroVeiculo() {
 async function loadVeiculosList() {
     const veiculos = await getAllVeiculos();
     
-    const listElement = document.getElementById('movimentacoes-list');
+    const dashboardListElement = document.getElementById('movimentacoes-list');
+    const deleteListElement = document.getElementById('delete-veiculo-list');
     
+    // Verifica se estamos na página de Cadastro de Veículo (onde o botão Excluir deve aparecer)
     const isCadastroPage = !document.getElementById('cadastro-veiculo').classList.contains('hidden');
 
-    listElement.innerHTML = ''; 
+    // Limpa ambas as listas no início
+    dashboardListElement.innerHTML = ''; 
+    deleteListElement.innerHTML = ''; 
 
     if (veiculos.length === 0) {
-        listElement.innerHTML = '<div class="card card-placeholder">Nenhuma viatura cadastrada.</div>';
+        dashboardListElement.innerHTML = '<div class="card card-placeholder">Nenhuma viatura cadastrada.</div>';
+        if (isCadastroPage) {
+            deleteListElement.innerHTML = '<div class="card card-placeholder">Nenhuma viatura para exclusão.</div>';
+        }
         return;
     }
     
+    // 1. Renderiza os cards para o Dashboard (Visão geral e Status) e, se necessário, com botão de exclusão
+    const cardHTMLArray = [];
+
     veiculos.forEach(v => {
         const kmRodadoAposTroca = v.km_atual - v.km_ultima_troca;
         const precisaTrocar = kmRodadoAposTroca >= 10000;
         
-        // CORREÇÃO DE ESTILO: Usa var(--color-primary-solid) (vermelho) para Alerta e var(--color-success) (verde) para OK
-        const corAlerta = precisaTroca ? 'var(--color-primary-solid)' : 'var(--color-success)'; 
+        const corAlerta = precisaTrocar ? 'var(--color-primary-solid)' : 'var(--color-success)'; 
         
-        const card = document.createElement('div');
-        card.classList.add('card');
-        card.style.borderLeftColor = corAlerta; 
-        
-        card.innerHTML = `
-            <h3 style="display: flex; justify-content: space-between; align-items: center;">
-                PLACA: ${v.placa}
-                ${isCadastroPage ? 
-                    // Mudança no botão de exclusão para usar a classe btn-danger do novo estilo
-                    `<button class="btn btn-danger delete-veiculo-btn" data-placa="${v.placa}" style="width: auto; padding: 5px 10px; margin: 0; font-size: 12px;">Excluir</button>` 
-                    : ''}
-            </h3>
-            <p>Modelo: ${v.modelo}</p>
-            <p>KM Atual: <strong>${v.km_atual.toLocaleString('pt-BR')}</strong></p>
-            <p style="color: ${corAlerta}; font-size: 14px; font-weight: bold;">
-                Status Óleo: ${precisaTrocar ? '🚨 TROCA NECESSÁRIA!' : `OK (Próx. KM: ${(v.km_ultima_troca + 10000).toLocaleString('pt-BR')})`}
-            </p>
+        const cardHTML = `
+            <div class="card" style="border-left-color: ${corAlerta};">
+                <h3 style="display: flex; justify-content: space-between; align-items: center;">
+                    PLACA: ${v.placa}
+                    ${isCadastroPage ? 
+                        // Se estiver na tela de Cadastro, adiciona o botão de Excluir ao card
+                        `<button class="btn btn-danger delete-veiculo-btn" data-placa="${v.placa}" style="width: auto; padding: 5px 10px; margin: 0; font-size: 12px;">Excluir</button>` 
+                        : ''}
+                </h3>
+                <p>Modelo: ${v.modelo}</p>
+                <p>KM Atual: <strong>${v.km_atual.toLocaleString('pt-BR')}</strong></p>
+                <p style="color: ${corAlerta}; font-size: 14px; font-weight: bold;">
+                    Status Óleo: ${precisaTrocar ? '🚨 TROCA NECESSÁRIA!' : `OK (Próx. KM: ${(v.km_ultima_troca + 10000).toLocaleString('pt-BR')})`}
+                </p>
+            </div>
         `;
-        listElement.appendChild(card);
+        
+        dashboardListElement.insertAdjacentHTML('beforeend', cardHTML);
+        
+        if (isCadastroPage) {
+            cardHTMLArray.push(cardHTML);
+        }
     });
     
-    // Adicionar listener de exclusão APENAS se estiver na página de Cadastro
+    // 2. Lógica Específica para a Tela de Cadastro (Lista de Exclusão)
     if (isCadastroPage) {
-        // Movemos a lista de exclusão do dashboard para a tela de cadastro
-        const deleteListElement = document.getElementById('delete-veiculo-list');
-        deleteListElement.innerHTML = listElement.innerHTML; // Copia os cards para a seção de exclusão
-
-        // Adicionar listeners ao invés de usar o mesmo elemento DOM (evita duplicação de IDs)
+        deleteListElement.innerHTML = cardHTMLArray.join('');
+        
+        // Adiciona listeners de exclusão
         deleteListElement.querySelectorAll('.delete-veiculo-btn').forEach(button => {
             button.addEventListener('click', async (e) => {
                 const placa = e.target.getAttribute('data-placa');
@@ -201,30 +216,10 @@ async function loadVeiculosList() {
                 }
             });
         });
-
-        // Limpa o dashboard para não duplicar os cards
-        document.getElementById('movimentacoes-list').innerHTML = veiculos.length === 0 ? '<div class="card card-placeholder">Nenhuma viatura cadastrada.</div>' : '';
-        veiculos.forEach(v => {
-            const kmRodadoAposTroca = v.km_atual - v.km_ultima_troca;
-            const precisaTrocar = kmRodadoAposTroca >= 10000;
-            const corAlerta = precisaTrocar ? 'var(--color-primary-solid)' : 'var(--color-success)'; 
-            
-            const card = document.createElement('div');
-            card.classList.add('card');
-            card.style.borderLeftColor = corAlerta; 
-            
-            card.innerHTML = `
-                <h3 style="display: flex; justify-content: space-between; align-items: center;">
-                    PLACA: ${v.placa}
-                </h3>
-                <p>Modelo: ${v.modelo}</p>
-                <p>KM Atual: <strong>${v.km_atual.toLocaleString('pt-BR')}</strong></p>
-                <p style="color: ${corAlerta}; font-size: 14px; font-weight: bold;">
-                    Status Óleo: ${precisaTrocar ? '🚨 TROCA NECESSÁRIA!' : `OK (Próx. KM: ${(v.km_ultima_troca + 10000).toLocaleString('pt-BR')})`}
-                </p>
-            `;
-            document.getElementById('movimentacoes-list').appendChild(card);
-        });
+        
+        // Se estiver na página de cadastro, limpamos o dashboard para evitar duplicidade visual na lista de exclusão
+        dashboardListElement.innerHTML = '';
+        
     }
 }
 
@@ -420,8 +415,8 @@ function setupMovimentacaoForm() {
             ctx.clearRect(0, 0, canvas.width, canvas.height); 
             resizeCanvas(); 
             kmInputMov.value = ''; 
-            loadVeiculosList(); 
             
+            loadVeiculosList(); // Atualiza dashboard
             document.querySelector('.nav-btn[data-target="dashboard"]').click(); 
 
         } catch (error) {
@@ -474,7 +469,6 @@ function setupPesquisaKmRapida() {
                 const kmRodadoAposTroca = veiculo.km_atual - veiculo.km_ultima_troca;
                 const precisaTrocar = kmRodadoAposTroca >= 10000; 
                 
-                // CORREÇÃO DE ESTILO: Usa var(--color-primary-solid) (vermelho) para Alerta e var(--color-success) (verde) para OK
                 const corAlerta = precisaTrocar ? 'var(--color-primary-solid)' : 'var(--color-success)';
 
                 infoDiv.innerHTML = `
@@ -484,7 +478,6 @@ function setupPesquisaKmRapida() {
                 `;
             }
         } catch (error) {
-            // CORREÇÃO DE ESTILO: Usa var(--color-primary-solid) para erro
             infoDiv.innerHTML = `<p style="color: var(--color-primary-solid);">Erro ao buscar informações.</p>`;
             console.error('Erro na pesquisa rápida de KM:', error);
         }
@@ -543,7 +536,7 @@ async function buscarMovimentacoesAuditoria() {
         const card = document.createElement('div');
         card.classList.add('card');
         
-        // CORREÇÃO DE ESTILO: Usa var(--color-primary-solid) (vermelho) para SAÍDA e var(--color-success) (verde) para ENTRADA
+        // Cor do card baseada no tipo de movimentação
         card.style.borderLeftColor = isSaida ? 'var(--color-primary-solid)' : 'var(--color-success)'; 
         
         const dataLocal = new Date(mov.data_hora).toLocaleString('pt-BR'); 
