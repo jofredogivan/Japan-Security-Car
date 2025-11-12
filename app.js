@@ -59,7 +59,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 8. Lógica da tela de Atualização de KM Noturna
     setupAtualizacaoKm(); 
 
-    // 9. Botão Flutuante (FAB) para ir para a Movimentação
+    // 9. ⭐ CORREÇÃO: Botão Flutuante (FAB) para ir para a Movimentação
+    // Garante que o clique no FAB simule o clique no botão de navegação "Movimentação"
     document.getElementById('fab-action').addEventListener('click', () => {
         document.querySelector('.nav-btn[data-target="movimentacao"]').click();
     });
@@ -126,7 +127,7 @@ function setupCadastroVeiculo() {
             alert(`Viatura PLACA: ${placa} salva com sucesso!`);
             form.reset();
             
-            // ⭐ AÇÃO CHAVE: Recarrega as listas e navega para o Dashboard
+            // AÇÃO CHAVE: Recarrega as listas e navega para o Dashboard
             loadVeiculosList(); 
             document.querySelector('.nav-btn[data-target="dashboard"]').click();
             
@@ -194,7 +195,10 @@ async function loadVeiculosList() {
     
     // 2. Lógica Específica para a Tela de Cadastro (Lista de Exclusão)
     if (isCadastroPage) {
-        deleteListElement.innerHTML = cardHTMLArray.join('');
+        deleteListElement.innerHTML = dashboardListElement.innerHTML;
+        
+        // Limpa o dashboard para não duplicar a lista na tela de Cadastro.
+        dashboardListElement.innerHTML = '';
         
         // Adiciona listeners de exclusão
         deleteListElement.querySelectorAll('.delete-veiculo-btn').forEach(button => {
@@ -216,10 +220,6 @@ async function loadVeiculosList() {
                 }
             });
         });
-        
-        // Se estiver na página de cadastro, limpamos o dashboard para evitar duplicidade visual na lista de exclusão
-        dashboardListElement.innerHTML = '';
-        
     }
 }
 
@@ -263,7 +263,7 @@ function setupMovimentacaoForm() {
         
         ctx.scale(ratio, ratio);
         
-        // ⭐ CORREÇÃO DE ESTILO: Assinatura em branco para fundo escuro
+        // CORREÇÃO DE ESTILO: Assinatura em branco para fundo escuro
         ctx.strokeStyle = 'white'; 
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
