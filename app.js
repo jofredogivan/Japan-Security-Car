@@ -1,4 +1,4 @@
-// app.js (Código completo, finalizado, com importações, agrupamento de PDF e exclusão de veículos ativa)
+// app.js (Código completo, finalizado, com importações, agrupamento de PDF e lógica de KM Vistoria)
 
 import { 
     saveVeiculo, 
@@ -19,7 +19,8 @@ let lastSearchResult = [];
 // -------------------------------------------------------------
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
+        // Corrigido para buscar sw.js no diretório raiz do projeto
+        navigator.serviceWorker.register('./sw.js') 
             .then((registration) => {
                 console.log('ServiceWorker registrado com sucesso: ', registration.scope);
             })
@@ -55,7 +56,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // 7. Lógica da Tela de Histórico e Auditoria
     setupHistorico(); 
     
-    // 8. Botão Flutuante (FAB) para ir para a Movimentação
+    // 8. Lógica da tela de Atualização de KM Noturna
+    setupAtualizacaoKm(); 
+
+    // 9. Botão Flutuante (FAB) para ir para a Movimentação
     document.getElementById('fab-action').addEventListener('click', () => {
         document.querySelector('.nav-btn[data-target="movimentacao"]').click();
     });
@@ -78,7 +82,6 @@ function setupNavigation() {
             if (targetPage) {
                 targetPage.classList.remove('hidden');
                 
-                // Recarrega a lista para mostrar/ocultar o botão de excluir
                 if (targetId === 'dashboard' || targetId === 'cadastro-veiculo') { 
                     loadVeiculosList(); 
                 } else if (targetId === 'movimentacao') {
@@ -86,6 +89,8 @@ function setupNavigation() {
                 } else if (targetId === 'historico') {
                     loadVeiculosForHistorico(); 
                     setupPesquisaKmRapida(); 
+                } else if (targetId === 'atualizacao-km') { 
+                    loadVeiculosForKmUpdate(); 
                 }
             }
         });
@@ -133,7 +138,6 @@ async function loadVeiculosList() {
     
     const listElement = document.getElementById('movimentacoes-list');
     
-    // Verifica se o elemento 'cadastro-veiculo' é a página atualmente visível (não tem a classe 'hidden')
     const isCadastroPage = !document.getElementById('cadastro-veiculo').classList.contains('hidden');
 
     listElement.innerHTML = ''; 
@@ -181,6 +185,7 @@ async function loadVeiculosList() {
                         loadVeiculosList(); 
                         loadVeiculosForMovimentacao(); 
                         loadVeiculosForHistorico(); 
+                        loadVeiculosForKmUpdate(); 
                     } catch (error) {
                         alert('Erro ao excluir veículo.');
                         console.error('Erro ao excluir veículo:', error);
@@ -217,10 +222,28 @@ function setupMovimentacaoForm() {
     const ctx = canvas.getContext('2d');
     let drawing = false;
 
+    const selectPlacaMov = document.getElementById('mov-placa');
+    const kmInputMov = document.getElementById('mov-km-atual');
+
+    // Lógica para preencher o KM ao selecionar a placa
+    selectPlacaMov.addEventListener('change', async (e) => {
+        const placa = e.target.value;
+        kmInputMov.value = ''; // Limpa o campo para a próxima seleção
+
+        if (placa) {
+            const veiculo = await getVeiculoByPlaca(placa);
+            if (veiculo) {
+                // Preenche o campo KM com o último KM registrado
+                kmInputMov.value = veiculo.km_atual; 
+                kmInputMov.setAttribute('min', veiculo.km_atual);
+            }
+        }
+    });
+
     ctx.strokeStyle = 'black';
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
-
+    
     function startPosition(e) { drawing = true; draw(e); }
     function endPosition() { drawing = false; ctx.beginPath(); }
     
@@ -258,13 +281,12 @@ function setupMovimentacaoForm() {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const placa = document.getElementById('mov-placa').value;
+        const placa = selectPlacaMov.value;
         const motorista = document.getElementById('mov-motorista').value;
         const tipo = document.getElementById('mov-tipo').value;
         const dataHora = document.getElementById('mov-data-hora').value; // String YYYY-MM-DDTHH:MM
         const observacao = document.getElementById('mov-observacao').value;
-        const kmInput = document.getElementById('mov-km-atual');
-        const kmAtualMovimentacao = parseInt(kmInput.value, 10);
+        const kmAtualMovimentacao = parseInt(kmInputMov.value, 10);
         
         if (tipo === 'entrada' && (isNaN(kmAtualMovimentacao) || kmAtualMovimentacao <= 0)) {
             alert('Por favor, informe a KM Atual para a Entrada da Viatura.');
@@ -310,7 +332,11 @@ function setupMovimentacaoForm() {
 
                     if (confirmarTroca) {
                         await updateVeiculoKm(placa, kmAtualMovimentacao, kmAtualMovimentacao);
+                    } else {
+                        await updateVeiculoKm(placa, kmAtualMovimentacao, null); // Atualiza só o KM atual
                     }
+                } else {
+                    await updateVeiculoKm(placa, kmAtualMovimentacao, null); // Atualiza só o KM atual
                 }
             }
             
@@ -319,6 +345,7 @@ function setupMovimentacaoForm() {
             
             form.reset();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            kmInputMov.value = ''; 
             loadVeiculosList(); 
             
             document.querySelector('.nav-btn[data-target="dashboard"]').click(); 
@@ -601,4 +628,80 @@ function exportToExcel(data) {
 
     XLSX.writeFile(workbook, "auditoria_jscar.xlsx");
     alert('Excel gerado com sucesso!');
+}
+
+
+// --- NOVAS FUNÇÕES PARA ATUALIZAÇÃO DE KM (VISTORIA NOTURNA) ---
+
+// Carrega o <select> da tela de Atualização de KM
+async function loadVeiculosForKmUpdate() {
+    const select = document.getElementById('update-placa');
+    const veiculos = await getAllVeiculos();
+
+    while (select.options.length > 1) {
+        select.remove(1);
+    }
+
+    veiculos.forEach(v => {
+        const option = document.createElement('option');
+        option.value = v.placa;
+        option.textContent = `${v.placa} - ${v.modelo}`;
+        select.appendChild(option);
+    });
+}
+
+// Lógica principal da tela de Atualização de KM
+function setupAtualizacaoKm() {
+    const selectPlaca = document.getElementById('update-placa');
+    const kmInfoDiv = document.getElementById('km-info-display');
+    const form = document.getElementById('form-atualizacao-km');
+    const novoKmInput = document.getElementById('update-km-novo');
+
+    // Listener para exibir o KM atual ao selecionar a placa
+    selectPlaca.addEventListener('change', async (e) => {
+        const placa = e.target.value;
+        kmInfoDiv.innerHTML = '';
+        novoKmInput.value = '';
+
+        if (placa) {
+            const veiculo = await getVeiculoByPlaca(placa);
+            if (veiculo) {
+                kmInfoDiv.innerHTML = `<p>KM Atual Registrado: <strong>${veiculo.km_atual.toLocaleString('pt-BR')}</strong></p>`;
+                
+                // Define o KM mínimo para o novo registro, prevenindo valores retroativos
+                novoKmInput.setAttribute('min', veiculo.km_atual);
+            }
+        }
+    });
+
+    // Listener para o formulário de salvamento
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const placa = selectPlaca.value;
+        const novoKm = parseInt(novoKmInput.value, 10);
+        
+        if (!placa || isNaN(novoKm)) {
+            alert('Por favor, selecione o veículo e insira um KM válido.');
+            return;
+        }
+
+        try {
+            // Reutilizamos a função updateVeiculoKm (sem atualizar a KM de última troca, passando null)
+            await updateVeiculoKm(placa, novoKm, null); 
+            alert(`KM da viatura ${placa} atualizado para ${novoKm.toLocaleString('pt-BR')} com sucesso!`);
+            
+            form.reset();
+            kmInfoDiv.innerHTML = '';
+            novoKmInput.removeAttribute('min'); 
+            
+            loadVeiculosList(); // Atualiza dashboard
+            loadVeiculosForMovimentacao(); // Atualiza select de movimentação
+            loadVeiculosForKmUpdate(); // Recarrega o select desta tela
+            
+        } catch (error) {
+            alert('Erro ao atualizar KM. Verifique o console.');
+            console.error('Erro ao atualizar KM:', error);
+        }
+    });
 }
