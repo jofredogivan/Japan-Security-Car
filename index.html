@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSCar - Japan Security Car</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+
+    <link rel="stylesheet" href="style.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    
+    <div class="app-container">
+        <header class="header">
+            <h1>Japan Security Car</h1>
+        </header>
+
+        <main class="content" id="main-content">
+            <section id="dashboard" class="page active">
+                <h2>Movimentações e Alertas Recentes</h2>
+                <div id="movimentacoes-list" class="card-list">
+                    <div class="card card-placeholder">Nenhuma viatura cadastrada.</div>
+                </div>
+            </section>
+
+            <section id="cadastro-veiculo" class="page hidden">
+                <h2>Cadastrar Nova Viatura</h2>
+                <form id="form-cadastro-veiculo" class="card form-card">
+                    <input type="text" id="veiculo-placa" placeholder="Placa (Chave Única)" required>
+                    <input type="text" id="veiculo-modelo" placeholder="Modelo (Ex: Hilux)" required>
+                    <input type="number" id="veiculo-km" placeholder="KM Atual (Ex: 15000)" required>
+                    <button type="submit" class="btn btn-action">Salvar Viatura</button>
+                </form>
+            </section>
+
+            <section id="movimentacao" class="page hidden">
+                <h2>Nova Movimentação</h2>
+                <form id="form-movimentacao" class="card form-card">
+                    <h3>Dados da Viatura</h3>
+                    <select id="mov-placa" required>
+                        <option value="">-- Selecione a Viatura (Placa) --</option>
+                    </select>
+                    
+                    <input type="text" id="mov-motorista" placeholder="Nome do Motorista" required>
+                    
+                    <select id="mov-tipo" required>
+                        <option value="saida">Saída de Viatura</option>
+                        <option value="entrada">Entrada de Viatura</option>
+                    </select>
+
+                    <input type="datetime-local" id="mov-data-hora" required>
+                    <input type="number" id="mov-km-atual" placeholder="KM Atual da Viatura" required> 
+                    
+                    <hr style="border-top: 1px dashed #444; margin: 20px 0;">
+
+                    <h3>Checklist de Materiais</h3>
+                    <div class="checklist" id="mov-checklist">
+                        <label class="checkbox-container">Óleo OK
+                            <input type="checkbox" name="checklist" value="oleo" checked>
+                            <span class="checkmark"></span>
+                        </label>
+                        <label class="checkbox-container">Macaco e Chave OK
+                            <input type="checkbox" name="checklist" value="macaco" checked>
+                            <span class="checkmark"></span>
+                        </label>
+                        <label class="checkbox-container">Estepe OK
+                            <input type="checkbox" name="checklist" value="estepe" checked>
+                            <span class="checkmark"></span>
+                        </label>
+                        <label class="checkbox-container">Água/Radiador OK
+                            <input type="checkbox" name="checklist" value="agua" checked>
+                            <span class="checkmark"></span>
+                        </label>
+                        <label class="checkbox-container">Documento OK
+                            <input type="checkbox" name="checklist" value="documento" checked>
+                            <span class="checkmark"></span>
+                        </label>
+                    </div>
+
+                    <textarea id="mov-observacao" placeholder="Anotações e Observações" rows="3"></textarea>
+                    
+                    <hr style="border-top: 1px dashed #444; margin: 20px 0;">
+
+                    <h3>Assinatura Digital</h3>
+                    <div class="signature-pad-container">
+                        <canvas id="signature-pad" width="300" height="150" style="border: 1px solid var(--color-primary); background-color: white; touch-action: none;"></canvas>
+                        <button type="button" id="clear-signature" class="btn btn-secondary">Limpar Assinatura</button>
+                    </div>
+                    <p style="font-size: 12px; margin-top: 5px; color: var(--color-secondary);">Use o toque para assinar acima.</p>
+
+                    <button type="submit" class="btn btn-action" style="margin-top: 20px;">Finalizar e Salvar Movimentação</button>
+                </form>
+            </section>
+            
+            <section id="historico" class="page hidden">
+                <h2>🔎 Pesquisa e Histórico</h2>
+                
+                <div class="card form-card" style="margin-bottom: 20px;">
+                    <h3>Consulta Rápida de Viaturas</h3>
+                    <select id="select-veiculos-km">
+                        <option value="">-- Selecione a Viatura (KM) --</option>
+                    </select>
+                    <div id="veiculo-km-info" style="margin-top: 10px; font-size: 14px; color: var(--color-secondary);">
+                        </div>
+                </div>
+                
+                <div class="card form-card">
+                    <h3>Auditoria de Movimentações</h3>
+                    <div class="input-group">
+                        <input type="date" id="filtro-data-inicio" placeholder="Data Início">
+                        <input type="date" id="filtro-data-fim" placeholder="Data Fim">
+                    </div>
+                    <select id="filtro-veiculo">
+                        <option value="">Todos os Veículos</option>
+                    </select>
+                    <button id="btn-buscar-auditoria" class="btn btn-action" style="margin-top: 10px;">Buscar Movimentações</button>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <button id="btn-download-pdf" class="btn" style="background-color: #D32F2F;">Download PDF</button>
+                    <button id="btn-download-excel" class="btn" style="background-color: #388E3C;">Download Excel</button>
+                </div>
+
+                <div id="resultados-auditoria" class="card-list" style="margin-top: 20px;">
+                    <div class="card card-placeholder">Use os filtros acima para iniciar a auditoria.</div>
+                </div>
+            </section>
+        </main>
+
+        <button id="fab-action" class="fab" aria-label="Nova Movimentação">
+            +
+        </button>
+
+        <nav class="bottom-nav">
+            <button class="nav-btn active" data-target="dashboard">
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-btn" data-target="cadastro-veiculo">
+                <span>Cadastro</span>
+            </button>
+            <button class="nav-btn" data-target="movimentacao">
+                <span>Movimentação</span>
+            </button>
+            <button class="nav-btn" data-target="historico">
+                <span>Histórico</span>
+            </button>
+        </nav>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>

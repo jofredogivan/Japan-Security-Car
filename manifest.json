@@ -1,0 +1,22 @@
+{
+    "name": "JSCar - Japan Security Car",
+    "short_name": "JSCar",
+    "description": "Sistema de gestão de frotas e auditoria de veículos de segurança.",
+    "start_url": "/index.html",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#121212",
+    "theme_color": "#FF0000",
+    "icons": [
+        {
+            "src": "images/icon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "images/icon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
