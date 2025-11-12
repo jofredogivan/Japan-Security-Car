@@ -1,289 +1,264 @@
-/* style.css (Código completo) */
+/* style.css */
 
-/* VARIÁVEIS DE COR */
+/* --- VARIÁVEIS E RESET BÁSICO --- */
 :root {
-    --color-primary: #FF0000;       /* Vermelho (Ação/Destaque) */
-    --color-secondary: #CCCCCC;     /* Cinza Claro (Texto/Contraste) */
-    --color-background: #121212;    /* Quase Preto (Fundo Escuro) */
-    --color-card-bg: #1E1E1E;       /* Cinza Escuro (Fundo do Card) */
-    --color-text-light: #FFFFFF;    /* Branco */
+    --color-primary: #FF0000; /* Vermelho Japan Security Car */
+    --color-secondary: #333;
+    --color-background: #f4f4f4;
+    --color-card-bg: #fff;
+    --color-text-light: #fff;
+    --color-text-dark: #111;
 }
 
-/* RESET E ESTILO GLOBAL */
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+    font-family: Arial, sans-serif;
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     background-color: var(--color-background);
-    color: var(--color-text-light);
+    color: var(--color-text-dark);
     line-height: 1.6;
-    overflow-x: hidden; 
+    padding-bottom: 70px; /* Espaço para a barra de navegação fixa */
 }
 
-.app-container {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    max-width: 600px; 
-    margin: 0 auto;
-    padding-bottom: 60px; 
-}
-
-/* HEADER (Cabeçalho) */
-.header {
+/* --- HEADER --- */
+header {
     background-color: var(--color-primary);
     color: var(--color-text-light);
-    padding: 15px;
+    padding: 15px 0;
     text-align: center;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
-/* CONTEÚDO PRINCIPAL */
-.content {
-    flex-grow: 1;
-    padding: 20px;
-    overflow-y: auto;
+header h1 {
+    font-size: 1.5rem;
 }
 
-/* Telas (Pages) */
-.page {
-    transition: opacity 0.3s ease;
-}
-
-.hidden {
-    display: none;
-    opacity: 0;
-    pointer-events: none;
-}
-
-/* CARDS */
-.card-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    margin-top: 20px;
-}
-
-.card {
-    background-color: var(--color-card-bg);
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-    border-left: 5px solid var(--color-primary); /* Linha vermelha de destaque */
-}
-
-.card h3 {
-    margin-bottom: 10px;
-    color: var(--color-primary);
-}
-
-/* FORMULÁRIOS E INPUTS */
-input[type="text"], input[type="number"], input[type="date"], input[type="datetime-local"], select, textarea {
-    width: 100%;
-    padding: 12px;
-    margin-bottom: 15px;
-    border: 1px solid #444;
-    border-radius: 5px;
-    background-color: #252525;
-    color: var(--color-text-light);
-    font-size: 16px;
-}
-
-input:focus, select:focus, textarea:focus {
-    border-color: var(--color-primary);
-    outline: none;
-}
-
-/* BOTÕES GERAIS */
-.btn {
-    padding: 10px 15px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: bold;
-    transition: background-color 0.2s;
-}
-
-.btn-action {
-    background-color: var(--color-primary);
-    color: var(--color-text-light);
-    width: 100%;
-}
-
-.btn-action:hover {
-    background-color: #CC0000; 
-}
-
-/* BOTÃO FLUTUANTE (FAB) */
-.fab {
-    position: fixed;
-    bottom: 80px; 
-    right: 20px;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background-color: var(--color-primary);
-    color: var(--color-text-light);
-    font-size: 30px;
-    border: none;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 20;
-    cursor: pointer;
-    transition: transform 0.2s ease-in-out;
-}
-
-.fab:active {
-    transform: scale(0.95);
-}
-
-/* NAVEGAÇÃO INFERIOR */
-.bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 60px;
-    background-color: #000000; 
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    border-top: 1px solid #333;
-    z-index: 30;
-    max-width: 600px;
+/* --- LAYOUT PRINCIPAL E PÁGINAS --- */
+.container {
+    max-width: 800px;
     margin: 0 auto;
+    padding: 0 10px;
 }
 
-.nav-btn {
-    flex: 1;
-    background: none;
-    border: none;
-    color: var(--color-secondary);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 5px;
-    font-size: 12px;
-    cursor: pointer;
+.page {
+    padding: 20px 0;
 }
 
-.nav-btn.active {
-    color: var(--color-primary);
+/* Regra essencial para esconder as abas não selecionadas */
+.hidden {
+    display: none !important; 
 }
 
-.nav-btn:hover {
-    color: var(--color-primary);
+/* --- FORMULÁRIOS E INPUTS --- */
+.form-group {
+    margin-bottom: 15px;
 }
 
-.nav-btn span {
-    margin-top: 2px;
-}
-
-/* CHECKLIST (Estilo para checkboxes) */
-.checklist {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 20px;
-}
-
-.checkbox-container {
+label {
     display: block;
-    position: relative;
-    padding-left: 35px;
-    cursor: pointer;
-    font-size: 16px;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
+    margin-bottom: 5px;
+    font-weight: bold;
 }
 
-.checkbox-container input {
-    position: absolute;
-    opacity: 0;
-    cursor: pointer;
-    height: 0;
-    width: 0;
-}
-
-.checkmark {
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 20px;
-    width: 20px;
-    background-color: #333;
-    border: 1px solid var(--color-secondary);
-    border-radius: 3px;
-}
-
-.checkbox-container:hover input ~ .checkmark {
-    background-color: #555;
-}
-
-.checkbox-container input:checked ~ .checkmark {
-    background-color: var(--color-primary);
-    border: none;
-}
-
-.checkmark:after {
-    content: "";
-    position: absolute;
-    display: none;
-}
-
-.checkbox-container input:checked ~ .checkmark:after {
-    display: block;
-}
-
-.checkbox-container .checkmark:after {
-    left: 7px;
-    top: 3px;
-    width: 5px;
-    height: 10px;
-    border: solid white;
-    border-width: 0 3px 3px 0;
-    -webkit-transform: rotate(45deg);
-    -ms-transform: rotate(45deg);
-    transform: rotate(45deg);
-}
-
-/* ASSINATURA */
-.signature-pad-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-top: 15px;
-    gap: 10px;
-}
-
-#signature-pad {
-    border: 2px solid var(--color-primary) !important;
-    border-radius: 5px;
-    cursor: crosshair;
-    touch-action: none; 
-    max-width: 100%;
-}
-
-/* Botão Secundário (Limpar Assinatura) */
-.btn-secondary {
-    background-color: #444;
-    color: var(--color-text-light);
+input[type="text"],
+input[type="number"],
+input[type="date"],
+input[type="datetime-local"],
+select,
+textarea {
     width: 100%;
-    margin-top: 5px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+textarea {
+    resize: vertical;
+}
+
+.checklist-group {
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 4px;
+    background-color: var(--color-card-bg);
+}
+
+.checklist-group label {
+    font-weight: normal;
+    display: inline-block;
+    margin-right: 15px;
+}
+
+/* --- BOTÕES --- */
+.btn {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    text-align: center;
+    transition: background-color 0.3s;
+    margin-top: 10px;
+}
+
+.btn-primary {
+    background-color: var(--color-primary);
+    color: var(--color-text-light);
+}
+
+.btn-primary:hover {
+    background-color: #cc0000;
+}
+
+.btn-secondary {
+    background-color: var(--color-secondary);
+    color: var(--color-text-light);
 }
 
 .btn-secondary:hover {
     background-color: #555;
+}
+
+.download-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.download-buttons .btn {
+    flex: 1;
+}
+
+/* --- LISTAS E CARDS --- */
+.list-container {
+    margin-top: 15px;
+}
+
+.card {
+    background-color: var(--color-card-bg);
+    border: 1px solid #ddd;
+    border-left: 5px solid var(--color-primary); /* Cor de destaque para status */
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.card h3 {
+    margin-top: 0;
+    font-size: 1.2rem;
+    margin-bottom: 5px;
+}
+
+.card p {
+    margin: 5px 0;
+    font-size: 0.95rem;
+}
+
+.card-placeholder {
+    text-align: center;
+    color: #888;
+    border-left: 5px solid #ccc;
+}
+
+/* --- ASSINATURA --- */
+.signature-pad-container {
+    text-align: center;
+    margin-top: 15px;
+}
+
+#signature-pad {
+    max-width: 100%;
+    display: block;
+    margin: 0 auto;
+    touch-action: none; /* Previne o scroll em touch devices */
+}
+
+/* --- BARRA DE NAVEGAÇÃO FIXA --- */
+.nav-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: var(--color-secondary);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 5px 0;
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+}
+
+.nav-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    flex: 1;
+    padding: 8px 5px;
+    font-size: 0.7rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: color 0.3s;
+}
+
+.nav-btn i {
+    font-size: 1.2rem;
+    margin-bottom: 3px;
+}
+
+.nav-btn.active {
+    color: var(--color-primary);
+    font-weight: bold;
+}
+
+.nav-btn:hover:not(.active) {
+    color: var(--color-text-light);
+}
+
+/* --- FAB (Floating Action Button) --- */
+.fab {
+    position: fixed;
+    bottom: 75px; /* Acima da nav-bar */
+    right: 15px;
+    background-color: var(--color-primary);
+    color: var(--color-text-light);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    z-index: 1000;
+    transition: background-color 0.3s;
+}
+
+.fab:hover {
+    background-color: #cc0000;
+}
+
+/* --- RESPONSIVIDADE PEQUENA (Garante que tudo caiba em telas menores) --- */
+@media (max-width: 500px) {
+    .nav-btn {
+        font-size: 0.6rem;
+        padding: 6px 3px;
+    }
+
+    .nav-btn i {
+        font-size: 1rem;
+    }
 }
