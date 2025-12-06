@@ -1,4 +1,4 @@
-// db.js (Código completo, finalizado e com todas as funções exportadas)
+// db.js
 
 const DB_NAME = 'JapanSecurityCarDB';
 const DB_VERSION = 1;
@@ -117,16 +117,24 @@ async function deleteVeiculo(placa) {
     return executeTransaction(STORE_VEICULOS, 'readwrite', (store) => store.delete(placa));
 }
 
-async function updateVeiculoKm(placa, novoKm, kmUltimaTroca = null) {
+// ATUALIZADO: Adiciona forceUpdate para permitir correções de KM (Edição)
+async function updateVeiculoKm(placa, novoKm, kmUltimaTroca = null, forceUpdate = false) {
     const veiculo = await getVeiculoByPlaca(placa);
     if (!veiculo) {
         throw new Error(`Veículo com placa ${placa} não encontrado.`);
     }
 
+    // Se não for uma atualização forçada (edição/recalculo) E o novo KM for menor, lança erro.
+    if (!forceUpdate && novoKm < veiculo.km_atual) {
+        throw new Error(`O novo KM (${novoKm}) é menor que o KM atual registrado (${veiculo.km_atual}).`);
+    }
+
     veiculo.km_atual = novoKm;
+    
     if (kmUltimaTroca !== null) {
         veiculo.km_ultima_troca = kmUltimaTroca;
         
+        // Se o KM de última troca for atualizado, registra uma manutenção (troca de óleo)
         const manutencao = {
             placa_veiculo: placa,
             data_troca: new Date().toISOString(),
@@ -147,10 +155,13 @@ async function updateVeiculoKm(placa, novoKm, kmUltimaTroca = null) {
 async function saveMovimentacao(movimentacao) { 
     const id = await executeTransaction(STORE_MOVIMENTACOES, 'readwrite', (store) => store.add(movimentacao));
     
+    // Agora só atualiza o KM do veículo se um KM válido foi informado
     if (movimentacao.tipo === 'entrada' && movimentacao.km_atual) {
         const placa = movimentacao.placa_veiculo;
         const novoKm = movimentacao.km_atual;
 
+        // Note: Se a KM for menor que a atual, a função updateVeiculoKm vai lançar um erro (a menos que seja forceUpdate)
+        // Isso é tratado no app.js antes de chamar o saveMovimentacao
         await updateVeiculoKm(placa, novoKm, null); 
     }
 
@@ -162,11 +173,61 @@ async function getAllMovimentacoes() {
 }
 
 /**
- * Exclui uma movimentação pelo ID.
+ * Exclui uma movimentação pelo ID e recalcula o KM atual do veículo.
  */
 async function deleteMovimentacaoById(id) { 
-    return executeTransaction(STORE_MOVIMENTACOES, 'readwrite', (store) => store.delete(id));
+    const movimentacaoDeletada = await executeTransaction(STORE_MOVIMENTACOES, 'readwrite', (store) => store.get(id));
+    if (!movimentacaoDeletada) return;
+
+    // 1. Deleta o registro.
+    await executeTransaction(STORE_MOVIMENTACOES, 'readwrite', (store) => store.delete(id));
+
+    // 2. Se a movimentação excluída era de ENTRADA e tinha KM, RECALCULA o KM atual.
+    if (movimentacaoDeletada.tipo === 'entrada' && movimentacaoDeletada.km_atual) {
+        await recalculateVehicleKm(movimentacaoDeletada.placa_veiculo);
+    }
 }
+
+/**
+ * NOVA FUNÇÃO: Atualiza o KM atual do veículo após uma edição ou exclusão,
+ * buscando o último KM de entrada válido.
+ */
+async function recalculateVehicleKm(placa) {
+    const movimentacoes = await getAllMovimentacoes();
+    
+    // Acha o último registro de ENTRADA válido para definir o KM atual.
+    const ultimaEntradaValida = movimentacoes
+        .filter(mov => mov.placa_veiculo === placa && mov.tipo === 'entrada' && mov.km_atual)
+        .sort((a, b) => new Date(b.data_hora).getTime() - new Date(a.data_hora).getTime()) // Mais recente primeiro
+        [0]; // Pega o primeiro (o mais recente)
+        
+    // Se não houver entradas, o KM volta para 0 ou precisará de uma busca mais complexa
+    // Aqui, simplificamos para 0 se não houver entradas válidas.
+    const kmParaAtualizar = ultimaEntradaValida ? ultimaEntradaValida.km_atual : 0; 
+    
+    const veiculo = await getVeiculoByPlaca(placa);
+    
+    if (veiculo) {
+        // Só atualiza se o KM for diferente, usando forceUpdate=true para permitir correções retroativas.
+        if (veiculo.km_atual !== kmParaAtualizar) {
+             await updateVeiculoKm(placa, kmParaAtualizar, null, true); 
+        }
+    }
+}
+
+/**
+ * NOVA FUNÇÃO: Edita um registro de movimentação e recalcula o KM.
+ */
+async function editMovimentacao(movimentacaoEditada) {
+    // 1. Atualizar o registro de movimentação (usando put - substituição pelo keyPath ID).
+    await executeTransaction(STORE_MOVIMENTACOES, 'readwrite', (store) => store.put(movimentacaoEditada));
+    
+    // 2. Após a edição, recalcula o KM atual do veículo com base na nova lista.
+    await recalculateVehicleKm(movimentacaoEditada.placa_veiculo);
+    
+    return movimentacaoEditada.id;
+}
+
 
 // -------------------------------------------------------------
 // OPERAÇÕES CRUD PARA MANUTENÇÕES
@@ -192,5 +253,6 @@ export {
     saveMovimentacao,
     getAllMovimentacoes,
     deleteMovimentacaoById, 
+    editMovimentacao, 
     saveManutencao
 };
