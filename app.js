@@ -1,4 +1,4 @@
-// app.js (Código completo, finalizado, com todas as correções)
+// app.js (Código completo, finalizado, com todas as correções e edições)
 
 import { 
     saveVeiculo, 
@@ -9,7 +9,8 @@ import {
     saveMovimentacao, 
     updateVeiculoKm,
     deleteMovimentacaoById,
-    getAllMovimentacoes 
+    getAllMovimentacoes,
+    editMovimentacao 
 } from './db.js';
 
 let lastSearchResult = []; 
@@ -44,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. Lógica do Formulário de Cadastro de Veículo
     setupCadastroVeiculo();
 
-    // 4. Carrega a lista de veículos (usada no Dashboard e na tela de Cadastro para exclusão)
+    // 4. Carrega a lista de veículos (usada no Dashboard e na tela de Cadastro para exclusão/edição)
     loadVeiculosList();
     
     // 5. Carrega as opções de veículos no formulário de movimentação
@@ -59,9 +60,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 8. Lógica da tela de Atualização de KM Noturna
     setupAtualizacaoKm(); 
 
-    // 9. CORREÇÃO: Botão Flutuante (FAB) para ir para a Movimentação
+    // 9. Botão Flutuante (FAB) para ir para a Movimentação
     document.getElementById('fab-action').addEventListener('click', () => {
-        document.querySelector('.nav-btn[data-target="movimentacao"]').click();
+        document.querySelector('.nav-btn[data-target="movimentacao"]').click(); 
     });
 });
 
@@ -109,7 +110,7 @@ function setupCadastroVeiculo() {
         const modelo = document.getElementById('veiculo-modelo').value.trim();
         const kmAtual = parseInt(document.getElementById('veiculo-km').value, 10);
 
-        if (!placa || !modelo || isNaN(kmAtual)) {
+        if (!placa || !modelo || isNaN(kmAtual) || kmAtual < 0) {
             alert('Por favor, preencha todos os campos corretamente.');
             return;
         }
@@ -132,19 +133,19 @@ function setupCadastroVeiculo() {
             
         } catch (error) {
             console.error('Erro ao salvar veículo:', error);
-            alert('Erro ao salvar viatura. Verifique se a placa já existe.');
+            alert('Erro ao salvar viatura. Verifique se a placa já existe ou se há outro erro de DB.');
         }
     });
 }
 
-// --- DASHBOARD/CADASTRO: EXIBIÇÃO DE VEÍCULOS E ALERTA DE ÓLEO (E BOTÃO DE EXCLUSÃO) ---
+// --- DASHBOARD/CADASTRO: EXIBIÇÃO DE VEÍCULOS E ALERTA DE ÓLEO (E BOTÃO DE EXCLUSÃO/EDIÇÃO) ---
 async function loadVeiculosList() {
     const veiculos = await getAllVeiculos();
     
     const dashboardListElement = document.getElementById('movimentacoes-list');
     const deleteListElement = document.getElementById('delete-veiculo-list');
     
-    // Verifica se estamos na página de Cadastro de Veículo (onde o botão Excluir deve aparecer)
+    // Verifica se estamos na página de Cadastro de Veículo (onde o botão Excluir/Editar deve aparecer)
     const isCadastroPage = !document.getElementById('cadastro-veiculo').classList.contains('hidden');
 
     // Limpa ambas as listas no início
@@ -158,7 +159,7 @@ async function loadVeiculosList() {
         return;
     }
     
-    // 1. Renderiza os cards para o Dashboard (Visão geral e Status) e, se necessário, com botão de exclusão
+    // 1. Renderiza os cards
     veiculos.forEach(v => {
         const kmRodadoAposTroca = v.km_atual - v.km_ultima_troca;
         const precisaTrocar = kmRodadoAposTroca >= 10000;
@@ -166,15 +167,18 @@ async function loadVeiculosList() {
         const corAlerta = precisaTrocar ? 'var(--color-primary-solid)' : 'var(--color-success)'; 
         
         const cardHTML = `
-            <div class="card" style="border-left-color: ${corAlerta};">
+            <div class="card veiculo-card" id="veiculo-card-${v.placa}" style="border-left-color: ${corAlerta};">
                 <h3 style="display: flex; justify-content: space-between; align-items: center;">
                     PLACA: ${v.placa}
                     ${isCadastroPage ? 
-                        // Se estiver na tela de Cadastro, adiciona o botão de Excluir ao card
-                        `<button class="btn btn-danger delete-veiculo-btn" data-placa="${v.placa}" style="width: auto; padding: 5px 10px; margin: 0; font-size: 12px;">Excluir</button>` 
+                        // Adiciona botão de Edição e Exclusão na tela de Cadastro
+                        `<div style="display: flex; gap: 5px;">
+                            <button class="btn edit-veiculo-btn" data-placa="${v.placa}" style="width: auto; padding: 5px 10px; margin: 0; font-size: 12px; background-color: #3f51b5;"><i class="fas fa-edit"></i> Editar</button>
+                            <button class="btn btn-danger delete-veiculo-btn" data-placa="${v.placa}" style="width: auto; padding: 5px 10px; margin: 0; font-size: 12px;"><i class="fas fa-trash"></i> Excluir</button>
+                         </div>` 
                         : ''}
                 </h3>
-                <p>Modelo: ${v.modelo}</p>
+                <p>Modelo: <strong>${v.modelo}</strong></p>
                 <p>KM Atual: <strong>${v.km_atual.toLocaleString('pt-BR')}</strong></p>
                 <p style="color: ${corAlerta}; font-size: 14px; font-weight: bold;">
                     Status Óleo: ${precisaTrocar ? '🚨 TROCA NECESSÁRIA!' : `OK (Próx. KM: ${(v.km_ultima_troca + 10000).toLocaleString('pt-BR')})`}
@@ -182,7 +186,7 @@ async function loadVeiculosList() {
             </div>
         `;
         
-        // Renderiza no Dashboard OU na Lista de Exclusão (Cadastro)
+        // Renderiza no Dashboard OU na Lista de Gestão (Cadastro)
         if (isCadastroPage) {
             deleteListElement.insertAdjacentHTML('beforeend', cardHTML);
         } else {
@@ -190,8 +194,9 @@ async function loadVeiculosList() {
         }
     });
     
-    // 2. Lógica Específica para a Tela de Cadastro (Adiciona listeners de exclusão)
+    // 2. Lógica Específica para a Tela de Cadastro (Adiciona listeners de gestão)
     if (isCadastroPage) {
+        // Listener de Exclusão
         deleteListElement.querySelectorAll('.delete-veiculo-btn').forEach(button => {
             button.addEventListener('click', async (e) => {
                 const placa = e.target.getAttribute('data-placa');
@@ -211,7 +216,83 @@ async function loadVeiculosList() {
                 }
             });
         });
+        
+        // Listener de Edição de Veículo
+        deleteListElement.querySelectorAll('.edit-veiculo-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const placa = e.target.getAttribute('data-placa');
+                const veiculo = veiculos.find(v => v.placa === placa);
+                if (veiculo) {
+                    renderEditVeiculoForm(veiculo);
+                }
+            });
+        });
     }
+}
+
+// --- NOVO: FUNÇÃO PARA RENDERIZAR O FORM DE EDIÇÃO DE VEÍCULO ---
+async function renderEditVeiculoForm(veiculo) {
+    const card = document.getElementById(`veiculo-card-${veiculo.placa}`);
+    if (!card) return;
+    
+    // Renderiza o formulário no lugar do card
+    const formHtml = `
+        <div class="card" style="border-left: 5px solid #3f51b5; padding: 15px; margin-top: 10px;">
+            <h4>Editando Viatura: ${veiculo.placa}</h4>
+            <form id="form-edit-veiculo-${veiculo.placa}" class="edit-form-veiculo">
+                <p style="font-size: 12px; color: #888;">* Placa não pode ser alterada.</p>
+                
+                <label for="edit-modelo-${veiculo.placa}">Modelo/Descrição:</label>
+                <input type="text" id="edit-modelo-${veiculo.placa}" value="${veiculo.modelo}" required>
+
+                <label for="edit-km-atual-${veiculo.placa}">KM Atual:</label>
+                <input type="number" id="edit-km-atual-${veiculo.placa}" value="${veiculo.km_atual}" min="0" required>
+                
+                <label for="edit-km-ultima-troca-${veiculo.placa}">KM Última Troca (Resetar Óleo):</label>
+                <input type="number" id="edit-km-ultima-troca-${veiculo.placa}" value="${veiculo.km_ultima_troca}" min="0" required>
+
+                <button type="submit" class="btn btn-primary" style="margin-top: 10px; background-color: #3f51b5;"><i class="fas fa-save"></i> Salvar Edição</button>
+                <button type="button" class="btn btn-secondary cancel-edit-veiculo-btn" data-placa="${veiculo.placa}" style="margin-top: 5px;"><i class="fas fa-times"></i> Cancelar</button>
+            </form>
+        </div>
+    `;
+
+    card.innerHTML = formHtml; // Substitui o conteúdo
+
+    // Lógica para salvar a edição
+    document.getElementById(`form-edit-veiculo-${veiculo.placa}`).addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const novoModelo = document.getElementById(`edit-modelo-${veiculo.placa}`).value;
+        const novoKmAtual = parseInt(document.getElementById(`edit-km-atual-${veiculo.placa}`).value, 10);
+        const novoKmUltimaTroca = parseInt(document.getElementById(`edit-km-ultima-troca-${veiculo.placa}`).value, 10);
+        
+        if (isNaN(novoKmAtual) || isNaN(novoKmUltimaTroca) || novoKmAtual < 0 || novoKmUltimaTroca < 0) {
+            alert('KM inválido. O KM deve ser um número positivo.');
+            return;
+        }
+
+        const veiculoEditado = {
+            placa: veiculo.placa,
+            modelo: novoModelo,
+            km_atual: novoKmAtual,
+            km_ultima_troca: novoKmUltimaTroca,
+        };
+
+        try {
+            await saveVeiculo(veiculoEditado); // Reutiliza a função saveVeiculo (que usa put/atualiza)
+            alert(`Viatura ${veiculo.placa} editada com sucesso.`);
+            loadVeiculosList(); // Recarrega a lista
+        } catch (error) {
+            console.error('Erro ao editar veículo:', error);
+            alert('Erro ao editar veículo. Verifique se o KM da Última Troca não é maior que o KM Atual.');
+        }
+    });
+
+    // Lógica para cancelar a edição
+    document.querySelector(`#form-edit-veiculo-${veiculo.placa} .cancel-edit-veiculo-btn`).addEventListener('click', () => {
+        loadVeiculosList(); // Recarrega a lista para mostrar o card original
+    });
 }
 
 
@@ -243,6 +324,13 @@ function setupMovimentacaoForm() {
     const selectPlacaMov = document.getElementById('mov-placa');
     const kmInputMov = document.getElementById('mov-km-atual');
 
+    // Configuração inicial do estilo da caneta
+    ctx.strokeStyle = 'white'; 
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    // -------------------------------------------------------------
+
     // -------------------------------------------------------------
     // OTIMIZAÇÃO E REDIMENSIONAMENTO DO CANVAS (DPR)
     // -------------------------------------------------------------
@@ -254,18 +342,13 @@ function setupMovimentacaoForm() {
         
         ctx.scale(ratio, ratio);
         
-        // CORREÇÃO DE ESTILO: Assinatura em branco para fundo escuro
-        ctx.strokeStyle = 'white'; 
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        
+        // Limpa a tela
         ctx.clearRect(0, 0, canvas.width, canvas.height); 
     }
     
     // Inicializa e monitora o redimensionamento
     window.addEventListener('resize', resizeCanvas);
-    resizeCanvas(); 
+    resizeCanvas(); // Chama no início para configurar o tamanho e limpar a tela
     
     // -------------------------------------------------------------
     // Lógica de Preencher o KM
@@ -277,8 +360,7 @@ function setupMovimentacaoForm() {
         if (placa) {
             const veiculo = await getVeiculoByPlaca(placa);
             if (veiculo) {
-                // Apenas preenche o KM anterior na SAÍDA. Na ENTRADA, o usuário deve atualizar.
-                // Mas define o KM MÍNIMO
+                // Define o KM MÍNIMO
                 kmInputMov.setAttribute('min', veiculo.km_atual);
                 
                 if (document.getElementById('mov-tipo').value === 'saida') {
@@ -369,11 +451,7 @@ function setupMovimentacaoForm() {
         const observacao = document.getElementById('mov-observacao').value;
         const kmAtualMovimentacao = parseInt(kmInputMov.value, 10);
         
-        if (tipo === 'entrada' && (isNaN(kmAtualMovimentacao) || kmAtualMovimentacao <= 0)) {
-            alert('Por favor, informe a KM Atual para a Entrada da Viatura.');
-            return;
-        }
-        
+        // ⭐ CORREÇÃO: KM é opcional na entrada, a validação é que os campos básicos estejam preenchidos. ⭐
         if (!placa || !motorista || !dataHora) {
              alert('Por favor, preencha a placa, motorista e data/hora.');
              return;
@@ -386,6 +464,9 @@ function setupMovimentacaoForm() {
         
         const dataHoraISO = new Date(dataHora).toISOString();
         
+        // Verifica se o KM é válido para ser registrado (só na ENTRADA)
+        const kmValidoParaEntrada = (tipo === 'entrada' && !isNaN(kmAtualMovimentacao) && kmAtualMovimentacao > 0);
+
         const novaMovimentacao = {
             placa_veiculo: placa,
             motorista: motorista,
@@ -394,37 +475,39 @@ function setupMovimentacaoForm() {
             checklist: checklist,
             observacao: observacao,
             assinatura: assinaturaDataUrl, 
-            km_atual: tipo === 'entrada' ? kmAtualMovimentacao : null 
+            // Só registra o KM se for um número válido (> 0) e se for entrada
+            km_atual: kmValidoParaEntrada ? kmAtualMovimentacao : null 
         };
 
         try {
-            if (tipo === 'entrada') {
+            // ⭐ NOVO FLUXO: SÓ ATUALIZA O KM DO VEÍCULO SE UM KM VÁLIDO FOI INFORMADO! ⭐
+            if (kmValidoParaEntrada) {
                 const veiculo = await getVeiculoByPlaca(placa);
                 
-                if (kmAtualMovimentacao < veiculo.km_atual) {
-                    alert('ERRO: O KM atual inserido é menor que o KM registrado anteriormente. Verifique o valor.');
+                if (novaMovimentacao.km_atual < veiculo.km_atual) {
+                    alert('ERRO: O KM atual inserido é menor que o KM registrado anteriormente. Por favor, corrija ou use a função "KM Vistoria".');
                     return;
                 }
                 
-                const kmRodado = kmAtualMovimentacao - veiculo.km_ultima_troca;
+                const kmRodado = novaMovimentacao.km_atual - veiculo.km_ultima_troca;
 
                 if (kmRodado >= 10000) {
                     const confirmarTroca = confirm(`🚨 ALERTA: Esta viatura rodou ${kmRodado.toLocaleString('pt-BR')} km desde a última troca de óleo.
                     
-                    KM ATUAL: ${kmAtualMovimentacao.toLocaleString('pt-BR')}
+                    KM ATUAL: ${novaMovimentacao.km_atual.toLocaleString('pt-BR')}
                     
                     A troca de óleo foi realizada agora? (Clique em OK se sim, Cancelar se a troca não foi feita)`);
 
                     if (confirmarTroca) {
                         // Passa o novo KM como KM da última troca (reseta o contador)
-                        await updateVeiculoKm(placa, kmAtualMovimentacao, kmAtualMovimentacao);
+                        await updateVeiculoKm(placa, novaMovimentacao.km_atual, novaMovimentacao.km_atual);
                     } else {
                         // Mantém o KM da última troca anterior
-                        await updateVeiculoKm(placa, kmAtualMovimentacao, null); 
+                        await updateVeiculoKm(placa, novaMovimentacao.km_atual, null); 
                     }
                 } else {
                     // Atualiza apenas o KM atual
-                    await updateVeiculoKm(placa, kmAtualMovimentacao, null); 
+                    await updateVeiculoKm(placa, novaMovimentacao.km_atual, null); 
                 }
             }
             
@@ -504,7 +587,7 @@ function setupPesquisaKmRapida() {
     });
 }
 
-// --- HISTÓRICO: Lógica de Auditoria e Associações (E BOTÃO DE EXCLUSÃO) ---
+// --- HISTÓRICO: Lógica de Auditoria e Edição/Exclusão (AGORA INCLUI MODELO) ---
 async function buscarMovimentacoesAuditoria() {
     const placaFiltro = document.getElementById('filtro-veiculo').value;
     const dataInicioStr = document.getElementById('filtro-data-inicio').value;
@@ -514,6 +597,10 @@ async function buscarMovimentacoesAuditoria() {
     resultadosDiv.innerHTML = '<div class="card card-placeholder">Buscando...</div>';
 
     let movimentacoes = await getAllMovimentacoes();
+    
+    // ⭐ NOVO PASSO: BUSCAR TODOS OS VEÍCULOS PARA PEGAR O MODELO ⭐
+    const veiculos = await getAllVeiculos();
+    const veiculosMap = new Map(veiculos.map(v => [v.placa, v.modelo])); // Mapeia Placa -> Modelo
 
     // 1. Filtrar
     movimentacoes = movimentacoes.filter(mov => {
@@ -556,20 +643,30 @@ async function buscarMovimentacoesAuditoria() {
         const isSaida = mov.tipo === 'saida';
         const card = document.createElement('div');
         card.classList.add('card');
+        card.id = `mov-card-${mov.id}`; // Adiciona ID para facilitar a substituição/edição
         
         // Cor do card baseada no tipo de movimentação
         card.style.borderLeftColor = isSaida ? 'var(--color-primary-solid)' : 'var(--color-success)'; 
         
         const dataLocal = new Date(mov.data_hora).toLocaleString('pt-BR'); 
+        
+        // ⭐ NOVO: OBTÉM o modelo do mapa ⭐
+        const modelo = veiculosMap.get(mov.placa_veiculo) || 'Modelo N/D';
 
         card.innerHTML = `
             <h3 style="display: flex; justify-content: space-between; align-items: center;">
                 <span style="color: ${isSaida ? 'var(--color-primary-solid)' : 'var(--color-success)'};">
                     ${isSaida ? 'SAÍDA' : 'ENTRADA'} - ${mov.placa_veiculo}
                 </span>
-                <button class="btn delete-mov-btn" data-id="${mov.id}" style="width: auto; padding: 5px 10px; margin: 0; background-color: #8B0000; font-size: 12px;">Excluir</button>
+                <div style="display: flex; gap: 5px;">
+                    <button class="btn edit-mov-btn" data-id="${mov.id}" style="width: auto; padding: 5px 10px; margin: 0; background-color: #3f51b5; font-size: 12px;"><i class="fas fa-edit"></i> Editar</button>
+                    <button class="btn delete-mov-btn" data-id="${mov.id}" style="width: auto; padding: 5px 10px; margin: 0; background-color: #8B0000; font-size: 12px;"><i class="fas fa-trash"></i> Excluir</button>
+                </div>
             </h3>
             <p style="font-size: 10px; color: #888;">ID: ${mov.id}</p>
+            
+            <p><strong>Viatura:</strong> ${mov.placa_veiculo} - ${modelo}</p>
+            
             <p><strong>Motorista:</strong> ${mov.motorista}</p>
             <p><strong>Data/Hora:</strong> ${dataLocal}</p>
             ${mov.km_atual ? `<p><strong>KM:</strong> ${mov.km_atual.toLocaleString('pt-BR')}</p>` : ''}
@@ -583,14 +680,104 @@ async function buscarMovimentacoesAuditoria() {
         resultadosDiv.appendChild(card);
     });
 
-    // Adicionar listener de exclusão para o histórico APÓS a renderização:
+    // Adicionar listener de exclusão
     resultadosDiv.querySelectorAll('.delete-mov-btn').forEach(button => {
         button.addEventListener('click', async (e) => {
             const id = parseInt(e.target.getAttribute('data-id'), 10);
-            if (confirm(`Tem certeza que deseja EXCLUIR o registro de movimentação ID: ${id}?`)) {
+            if (confirm(`Tem certeza que deseja EXCLUIR o registro de movimentação ID: ${id}? O KM do veículo será recalculado.`)) {
                 await deleteMovimentacao(id); 
             }
         });
+    });
+    
+    // Adicionar listener de edição
+    resultadosDiv.querySelectorAll('.edit-mov-btn').forEach(button => {
+        button.addEventListener('click', async (e) => {
+            const id = parseInt(e.target.getAttribute('data-id'), 10);
+            // Procura o registro na lista filtrada atualmente
+            const registro = lastSearchResult.find(mov => mov.id === id); 
+            if (registro) {
+                renderEditForm(registro);
+            }
+        });
+    });
+}
+
+// --- NOVO: FUNÇÃO PARA RENDERIZAR O FORM DE EDIÇÃO DO HISTÓRICO ---
+async function renderEditForm(registro) {
+    const card = document.getElementById(`mov-card-${registro.id}`);
+    if (!card) return;
+
+    // Converte a data_hora ISO para o formato local do input datetime-local
+    const dataHoraLocal = registro.data_hora ? new Date(registro.data_hora).toISOString().substring(0, 16) : '';
+
+    const isEntrada = registro.tipo === 'entrada';
+
+    const formHtml = `
+        <div class="card" style="border-left: 5px solid #3f51b5; padding: 15px; margin-top: 10px;">
+            <h4>Editando Registro ID: ${registro.id} (${registro.placa_veiculo})</h4>
+            <form id="form-edit-mov-${registro.id}" class="edit-form-mov">
+                <label for="edit-motorista-${registro.id}">Motorista:</label>
+                <input type="text" id="edit-motorista-${registro.id}" value="${registro.motorista}" required>
+
+                <label for="edit-data-hora-${registro.id}">Data e Hora:</label>
+                <input type="datetime-local" id="edit-data-hora-${registro.id}" value="${dataHoraLocal}" required>
+                
+                ${isEntrada ? `
+                    <label for="edit-km-atual-${registro.id}">KM Atual (Entrada):</label>
+                    <input type="number" id="edit-km-atual-${registro.id}" value="${registro.km_atual || ''}" min="0" placeholder="Obrigatório para Entrada">
+                ` : ''}
+
+                <label for="edit-observacao-${registro.id}">Observações:</label>
+                <textarea id="edit-observacao-${registro.id}" rows="3">${registro.observacao || ''}</textarea>
+
+                <button type="submit" class="btn btn-primary" style="margin-top: 10px; background-color: #3f51b5;"><i class="fas fa-save"></i> Salvar Edição</button>
+                <button type="button" class="btn btn-secondary cancel-edit-btn" data-id="${registro.id}" style="margin-top: 5px;"><i class="fas fa-times"></i> Cancelar</button>
+            </form>
+        </div>
+    `;
+
+    card.innerHTML = formHtml; // Substitui o conteúdo do card pelo formulário de edição
+
+    // Lógica para salvar a edição
+    document.getElementById(`form-edit-mov-${registro.id}`).addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        let novoKm = null;
+        if (isEntrada) {
+            const kmValue = document.getElementById(`edit-km-atual-${registro.id}`).value;
+            novoKm = kmValue ? parseInt(kmValue, 10) : null;
+            
+            // Validação básica para KM na entrada
+            if (novoKm !== null && (isNaN(novoKm) || novoKm < 0)) {
+                alert('KM inválido para entrada. O KM deve ser um número positivo.');
+                return;
+            }
+        }
+
+        const movimentacaoEditada = {
+            ...registro, // Mantém todos os campos originais
+            motorista: document.getElementById(`edit-motorista-${registro.id}`).value,
+            data_hora: new Date(document.getElementById(`edit-data-hora-${registro.id}`).value).toISOString(),
+            km_atual: novoKm, // Usa o KM editado (ou null se Saída/vazio)
+            observacao: document.getElementById(`edit-observacao-${registro.id}`).value,
+            // Mantém checklist e assinatura
+        };
+
+        try {
+            await editMovimentacao(movimentacaoEditada);
+            alert(`Registro ID: ${registro.id} editado e KM do veículo recalculado com sucesso.`);
+            buscarMovimentacoesAuditoria(); // Recarrega a lista após a edição
+            loadVeiculosList(); // Atualiza dashboard
+        } catch (error) {
+            console.error('Erro ao editar movimentação:', error);
+            alert(`Erro ao editar: ${error.message || 'Erro desconhecido.'}`);
+        }
+    });
+
+    // Lógica para cancelar a edição
+    document.querySelector(`#form-edit-mov-${registro.id} .cancel-edit-btn`).addEventListener('click', () => {
+        buscarMovimentacoesAuditoria(); // Recarrega a lista para mostrar o card original
     });
 }
 
@@ -598,8 +785,9 @@ async function buscarMovimentacoesAuditoria() {
 async function deleteMovimentacao(id) {
     try {
         await deleteMovimentacaoById(id);
-        alert(`Registro ID: ${id} excluído com sucesso.`);
+        alert(`Registro ID: ${id} excluído com sucesso. O KM do veículo foi recalculado.`);
         buscarMovimentacoesAuditoria(); // Recarrega a lista
+        loadVeiculosList(); // Atualiza o dashboard
     } catch (error) {
         alert('Erro ao excluir registro. Verifique o console.');
         console.error('Erro ao excluir movimentação:', error);
@@ -618,9 +806,8 @@ function setupHistorico() {
     document.getElementById('btn-download-excel').addEventListener('click', () => exportToExcel(lastSearchResult));
 }
 
-// --- FUNÇÕES DE EXPORTAÇÃO ---
+// --- FUNÇÕES DE EXPORTAÇÃO (Mantidas) ---
 
-// FUNÇÃO ATUALIZADA: Agrupa dados por veículo para o PDF.
 function exportToPDF(data) {
     if (typeof window.jspdf === 'undefined' || !data || data.length === 0) {
         alert('Faça uma busca antes de exportar! (Verifique se os CDNs do PDF estão carregados)');
@@ -725,7 +912,7 @@ function exportToExcel(data) {
 }
 
 
-// --- NOVAS FUNÇÕES PARA ATUALIZAÇÃO DE KM (VISTORIA NOTURNA) ---
+// --- FUNÇÕES PARA ATUALIZAÇÃO DE KM (VISTORIA NOTURNA) ---
 
 // Carrega o <select> da tela de Atualização de KM
 async function loadVeiculosForKmUpdate() {
@@ -775,7 +962,7 @@ function setupAtualizacaoKm() {
         const placa = selectPlaca.value;
         const novoKm = parseInt(novoKmInput.value, 10);
         
-        if (!placa || isNaN(novoKm)) {
+        if (!placa || isNaN(novoKm) || novoKm < 0) {
             alert('Por favor, selecione o veículo e insira um KM válido.');
             return;
         }
@@ -786,7 +973,7 @@ function setupAtualizacaoKm() {
             alert(`KM da viatura ${placa} atualizado para ${novoKm.toLocaleString('pt-BR')} com sucesso!`);
             
             form.reset();
-            kmInfoDiv.innerHTML = '';
+            kmInfoDiv.innerHTML = 'Selecione um veículo acima.';
             novoKmInput.removeAttribute('min'); 
             
             loadVeiculosList(); // Atualiza dashboard
@@ -794,7 +981,7 @@ function setupAtualizacaoKm() {
             loadVeiculosForKmUpdate(); // Recarrega o select desta tela
             
         } catch (error) {
-            alert('Erro ao atualizar KM. Verifique o console.');
+            alert(`Erro ao atualizar KM: ${error.message}.`);
             console.error('Erro ao atualizar KM:', error);
         }
     });
