@@ -325,7 +325,7 @@ function setupMovimentacaoForm() {
     const kmInputMov = document.getElementById('mov-km-atual');
 
     // Configuração inicial do estilo da caneta
-    ctx.strokeStyle = 'red'; 
+    ctx.strokeStyle = '#FFFFFF'; 
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -986,4 +986,5 @@ function setupAtualizacaoKm() {
         }
     });
 }
+
 
