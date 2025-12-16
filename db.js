@@ -2,134 +2,257 @@
 
 const DB_NAME = 'JapanSecurityCarDB';
 const DB_VERSION = 1;
-const VEHICULOS_STORE = 'veiculos';
-const MOVIMENTACOES_STORE = 'movimentacoes';
+const KM_INTERVALO_OLEO = 10000; // Intervalo de 10.000 km para troca de óleo
+
+// Nomes das nossas Object Stores (Tabelas)
+const STORE_VEICULOS = 'veiculos';
+const STORE_MOVIMENTACOES = 'movimentacoes';
+const STORE_MANUTENCOES = 'manutencoes';
 
 let db;
 
-// Função para abrir o banco de dados
+/**
+ * Função para abrir e inicializar o banco de dados IndexedDB.
+ */
 function openDB() {
     return new Promise((resolve, reject) => {
+        if (db) {
+            resolve(db);
+            return;
+        }
+
         const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-        request.onerror = (event) => {
-            console.error('Erro ao abrir o banco de dados:', event.target.errorCode);
-            reject(event.target.errorCode);
+        request.onupgradeneeded = (event) => {
+            db = event.target.result;
+
+            // 1. Object Store de VEÍCULOS
+            if (!db.objectStoreNames.contains(STORE_VEICULOS)) {
+                const veiculosStore = db.createObjectStore(STORE_VEICULOS, { 
+                    keyPath: 'placa', 
+                    autoIncrement: false 
+                });
+                veiculosStore.createIndex('modelo', 'modelo', { unique: false });
+                veiculosStore.createIndex('km_atual', 'km_atual', { unique: false });
+            }
+
+            // 2. Object Store de MOVIMENTAÇÕES
+            if (!db.objectStoreNames.contains(STORE_MOVIMENTACOES)) {
+                const movimentacoesStore = db.createObjectStore(STORE_MOVIMENTACOES, { 
+                    keyPath: 'id', 
+                    autoIncrement: true 
+                });
+                movimentacoesStore.createIndex('placa_veiculo', 'placa_veiculo', { unique: false });
+                movimentacoesStore.createIndex('data_hora', 'data_hora', { unique: false });
+                movimentacoesStore.createIndex('motorista', 'motorista', { unique: false });
+            }
+
+            // 3. Object Store de MANUTENÇÕES
+            if (!db.objectStoreNames.contains(STORE_MANUTENCOES)) {
+                const manutencoesStore = db.createObjectStore(STORE_MANUTENCOES, { 
+                    keyPath: 'id', 
+                    autoIncrement: true 
+                });
+                manutencoesStore.createIndex('placa_veiculo', 'placa_veiculo', { unique: false });
+                manutencoesStore.createIndex('data_troca', 'data_troca', { unique: false });
+            }
         };
 
         request.onsuccess = (event) => {
             db = event.target.result;
-            console.log('Banco de dados aberto com sucesso.');
             resolve(db);
         };
 
-        request.onupgradeneeded = (event) => {
-            const db = event.target.result;
-            
-            // Criação da Object Store para Veículos
-            if (!db.objectStoreNames.contains(VEHICULOS_STORE)) {
-                const veiculosStore = db.createObjectStore(VEHICULOS_STORE, { keyPath: 'placa' });
-                // Índice para buscar por modelo (útil para auditoria)
-                veiculosStore.createIndex('by_modelo', 'modelo', { unique: false });
-            }
-
-            // Criação da Object Store para Movimentações
-            if (!db.objectStoreNames.contains(MOVIMENTACOES_STORE)) {
-                const movimentacoesStore = db.createObjectStore(MOVIMENTACOES_STORE, { keyPath: 'id', autoIncrement: true });
-                // Índice para buscar movimentações por placa
-                movimentacoesStore.createIndex('by_placa', 'placa', { unique: false });
-            }
+        request.onerror = (event) => {
+            console.error("Erro ao abrir IndexedDB:", event.target.errorCode);
+            reject(new Error("Erro ao abrir IndexedDB"));
         };
     });
 }
 
-// Função CRUD Genérica para adicionar ou atualizar dados
-function putData(storeName, data) {
+/**
+ * Executa uma transação genérica de leitura/escrita.
+ */
+async function executeTransaction(storeName, mode, callback) {
+    const database = await openDB();
+    const transaction = database.transaction(storeName, mode);
+    const store = transaction.objectStore(storeName);
+
     return new Promise((resolve, reject) => {
-        const transaction = db.transaction(storeName, 'readwrite');
-        const store = transaction.objectStore(storeName);
-        const request = store.put(data);
+        const request = callback(store);
 
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = (event) => reject(event.target.error);
-    });
-}
+        transaction.oncomplete = () => {
+            resolve(request ? request.result : undefined); 
+        };
 
-// Função CRUD Genérica para buscar todos os dados
-function getAllData(storeName) {
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(storeName, 'readonly');
-        const store = transaction.objectStore(storeName);
-        const request = store.getAll();
-
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = (event) => reject(event.target.error);
-    });
-}
-
-// Função para buscar um item específico por chave (ID/Placa)
-function getData(storeName, key) {
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(storeName, 'readonly');
-        const store = transaction.objectStore(storeName);
-        const request = store.get(key);
-
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = (event) => reject(event.target.error);
-    });
-}
-
-// Função para editar uma movimentação existente
-async function editMovimentacao(id, newData) {
-    const movimentacao = await getData(MOVIMENTACOES_STORE, id);
-    if (!movimentacao) {
-        throw new Error('Movimentação não encontrada.');
-    }
-
-    const oldKm = movimentacao.km_atual;
-    const newKm = parseFloat(newData.km_atual);
-
-    // 1. Atualiza os campos na movimentação
-    movimentacao.tipo = newData.tipo;
-    movimentacao.km_atual = newKm;
-    movimentacao.motorista = newData.motorista;
-    movimentacao.observacoes = newData.observacoes;
-    movimentacao.data_edicao = new Date().toISOString();
-
-    // 2. Salva a movimentação atualizada
-    await putData(MOVIMENTACOES_STORE, movimentacao);
-
-    // 3. Verifica se o KM foi alterado e precisa de recálculo
-    if (oldKm !== newKm) {
-        console.log(`KM de ${movimentacao.placa} alterado de ${oldKm} para ${newKm}. Recalculando...`);
-        // O recálculo será feito após salvar a movimentação
-        await recalculateVehicleKm(movimentacao.placa); 
-    }
-}
-
-// NOVO: Função para recalcular o KM de um veículo após edição
-async function recalculateVehicleKm(placa) {
-    const allMovimentacoes = await getAllData(MOVIMENTACOES_STORE);
-    const veiculoMovimentacoes = allMovimentacoes
-        .filter(m => m.placa === placa)
-        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-    const veiculo = await getData(VEHICULOS_STORE, placa);
-    if (!veiculo) return;
-
-    let ultimoKm = veiculo.km_inicial;
-
-    // Itera sobre as movimentações para encontrar o KM mais recente
-    veiculoMovimentacoes.forEach(mov => {
-        if (mov.km_atual > ultimoKm) {
-            ultimoKm = mov.km_atual;
+        transaction.onerror = (event) => {
+            reject(event.target.error);
+        };
+        
+        if (request) {
+            request.onerror = (event) => {
+                reject(event.target.error);
+            };
         }
     });
-
-    // Atualiza o KM no cadastro do veículo
-    veiculo.km_atual = ultimoKm;
-    await putData(VEHICULOS_STORE, veiculo);
 }
 
-// Inicializa o banco de dados
-openDB().catch(e => console.error('Falha na inicialização do DB:', e));
+// -------------------------------------------------------------
+// OPERAÇÕES CRUD PARA VEÍCULOS
+// -------------------------------------------------------------
+
+async function saveVeiculo(veiculo) {
+    return executeTransaction(STORE_VEICULOS, 'readwrite', (store) => store.put(veiculo));
+}
+
+async function getAllVeiculos() {
+    return executeTransaction(STORE_VEICULOS, 'readonly', (store) => store.getAll());
+}
+
+async function getVeiculoByPlaca(placa) {
+    return executeTransaction(STORE_VEICULOS, 'readonly', (store) => store.get(placa));
+}
+
+async function deleteVeiculo(placa) {
+    return executeTransaction(STORE_VEICULOS, 'readwrite', (store) => store.delete(placa));
+}
+
+// ATUALIZADO: Adiciona forceUpdate para permitir correções de KM (Edição)
+async function updateVeiculoKm(placa, novoKm, kmUltimaTroca = null, forceUpdate = false) {
+    const veiculo = await getVeiculoByPlaca(placa);
+    if (!veiculo) {
+        throw new Error(`Veículo com placa ${placa} não encontrado.`);
+    }
+
+    // Se não for uma atualização forçada (edição/recalculo) E o novo KM for menor, lança erro.
+    if (!forceUpdate && novoKm < veiculo.km_atual) {
+        throw new Error(`O novo KM (${novoKm}) é menor que o KM atual registrado (${veiculo.km_atual}).`);
+    }
+
+    veiculo.km_atual = novoKm;
+    
+    if (kmUltimaTroca !== null) {
+        veiculo.km_ultima_troca = kmUltimaTroca;
+        
+        // Se o KM de última troca for atualizado, registra uma manutenção (troca de óleo)
+        const manutencao = {
+            placa_veiculo: placa,
+            data_troca: new Date().toISOString(),
+            km_troca: novoKm,
+            tipo: "Troca de Óleo",
+            proximo_km_alerta: novoKm + KM_INTERVALO_OLEO
+        };
+        await saveManutencao(manutencao);
+    }
+    
+    return saveVeiculo(veiculo); 
+}
+
+// -------------------------------------------------------------
+// OPERAÇÕES CRUD PARA MOVIMENTAÇÕES
+// -------------------------------------------------------------
+
+async function saveMovimentacao(movimentacao) { 
+    const id = await executeTransaction(STORE_MOVIMENTACOES, 'readwrite', (store) => store.add(movimentacao));
+    
+    // Agora só atualiza o KM do veículo se um KM válido foi informado
+    if (movimentacao.tipo === 'entrada' && movimentacao.km_atual) {
+        const placa = movimentacao.placa_veiculo;
+        const novoKm = movimentacao.km_atual;
+
+        // Note: Se a KM for menor que a atual, a função updateVeiculoKm vai lançar um erro (a menos que seja forceUpdate)
+        // Isso é tratado no app.js antes de chamar o saveMovimentacao
+        await updateVeiculoKm(placa, novoKm, null); 
+    }
+
+    return id;
+}
+
+async function getAllMovimentacoes() { 
+    return executeTransaction(STORE_MOVIMENTACOES, 'readonly', (store) => store.getAll());
+}
+
+/**
+ * Exclui uma movimentação pelo ID e recalcula o KM atual do veículo.
+ */
+async function deleteMovimentacaoById(id) { 
+    const movimentacaoDeletada = await executeTransaction(STORE_MOVIMENTACOES, 'readwrite', (store) => store.get(id));
+    if (!movimentacaoDeletada) return;
+
+    // 1. Deleta o registro.
+    await executeTransaction(STORE_MOVIMENTACOES, 'readwrite', (store) => store.delete(id));
+
+    // 2. Se a movimentação excluída era de ENTRADA e tinha KM, RECALCULA o KM atual.
+    if (movimentacaoDeletada.tipo === 'entrada' && movimentacaoDeletada.km_atual) {
+        await recalculateVehicleKm(movimentacaoDeletada.placa_veiculo);
+    }
+}
+
+/**
+ * NOVA FUNÇÃO: Atualiza o KM atual do veículo após uma edição ou exclusão,
+ * buscando o último KM de entrada válido.
+ */
+async function recalculateVehicleKm(placa) {
+    const movimentacoes = await getAllMovimentacoes();
+    
+    // Acha o último registro de ENTRADA válido para definir o KM atual.
+    const ultimaEntradaValida = movimentacoes
+        .filter(mov => mov.placa_veiculo === placa && mov.tipo === 'entrada' && mov.km_atual)
+        .sort((a, b) => new Date(b.data_hora).getTime() - new Date(a.data_hora).getTime()) // Mais recente primeiro
+        [0]; // Pega o primeiro (o mais recente)
+        
+    // Se não houver entradas, o KM volta para 0 ou precisará de uma busca mais complexa
+    // Aqui, simplificamos para 0 se não houver entradas válidas.
+    const kmParaAtualizar = ultimaEntradaValida ? ultimaEntradaValida.km_atual : 0; 
+    
+    const veiculo = await getVeiculoByPlaca(placa);
+    
+    if (veiculo) {
+        // Só atualiza se o KM for diferente, usando forceUpdate=true para permitir correções retroativas.
+        if (veiculo.km_atual !== kmParaAtualizar) {
+             await updateVeiculoKm(placa, kmParaAtualizar, null, true); 
+        }
+    }
+}
+
+/**
+ * NOVA FUNÇÃO: Edita um registro de movimentação e recalcula o KM.
+ */
+async function editMovimentacao(movimentacaoEditada) {
+    // 1. Atualizar o registro de movimentação (usando put - substituição pelo keyPath ID).
+    await executeTransaction(STORE_MOVIMENTACOES, 'readwrite', (store) => store.put(movimentacaoEditada));
+    
+    // 2. Após a edição, recalcula o KM atual do veículo com base na nova lista.
+    await recalculateVehicleKm(movimentacaoEditada.placa_veiculo);
+    
+    return movimentacaoEditada.id;
+}
+
+
+// -------------------------------------------------------------
+// OPERAÇÕES CRUD PARA MANUTENÇÕES
+// -------------------------------------------------------------
+
+async function saveManutencao(manutencao) { 
+    return executeTransaction(STORE_MANUTENCOES, 'readwrite', (store) => store.add(manutencao));
+}
+
+
+// Exporta todas as funções e constantes necessárias
+export { 
+    openDB, 
+    STORE_VEICULOS, 
+    STORE_MOVIMENTACOES, 
+    STORE_MANUTENCOES,
+    executeTransaction,
+    saveVeiculo,
+    getAllVeiculos,
+    getVeiculoByPlaca,
+    deleteVeiculo,
+    updateVeiculoKm, 
+    saveMovimentacao,
+    getAllMovimentacoes,
+    deleteMovimentacaoById, 
+    editMovimentacao, 
+    saveManutencao
+};
