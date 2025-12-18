@@ -1,6 +1,6 @@
-/* style.css */
+/* style.css - VERSÃO ATUALIZADA */
 
-/* Definição de Variáveis e Tema Escuro */
+/* Definição de Variáveis e Tema Escuro - MANTIDOS */
 :root {
     --color-primary: #FF0000; /* Vermelho principal */
     --color-secondary: #AAAAAA; /* Cinza claro para detalhes */
@@ -19,6 +19,7 @@ body {
     margin: 0;
     padding: 0;
     line-height: 1.6;
+    padding-bottom: 70px; /* Espaço para a navegação inferior */
 }
 
 header {
@@ -27,6 +28,9 @@ header {
     padding: 1rem 0;
     text-align: center;
     border-bottom: 2px solid var(--color-primary);
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
 h1, h2, h3 {
@@ -48,6 +52,8 @@ section {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
+.hidden { display: none !important; }
+
 /* --- Formulário e Inputs --- */
 label {
     display: block;
@@ -59,10 +65,12 @@ label {
 
 input[type="text"],
 input[type="number"],
+input[type="date"],
+input[type="datetime-local"],
 select,
 textarea {
     width: 100%;
-    padding: 10px;
+    padding: 12px;
     margin-bottom: 10px;
     border: 1px solid var(--color-border);
     border-radius: 4px;
@@ -72,15 +80,11 @@ textarea {
     font-size: 16px;
 }
 
-textarea {
-    resize: vertical;
-}
-
 /* --- Botões --- */
-button {
+button, .btn {
     background-color: var(--color-primary);
     color: white;
-    padding: 10px 15px;
+    padding: 12px 15px;
     border: none;
     border-radius: 4px;
     cursor: pointer;
@@ -89,55 +93,73 @@ button {
     transition: background-color 0.3s;
     width: 100%;
     box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
-button:hover {
-    background-color: #CC0000; /* Vermelho um pouco mais escuro */
-}
+button:hover { background-color: #CC0000; }
 
-.btn-secondary {
-    background-color: transparent;
-    color: var(--color-primary);
-    border: 1px solid var(--color-primary);
-}
+.btn-danger { background-color: var(--color-error); width: auto; }
 
-.btn-secondary:hover {
-    background-color: rgba(255, 0, 0, 0.1); /* Um toque de vermelho no hover */
-}
-
-.btn-edit {
-    background-color: #007bff;
-    color: white;
-    padding: 8px 12px;
-    width: auto;
-    margin-left: 10px;
-}
-
-.btn-edit:hover {
-    background-color: #0056b3;
-}
-
-/* --- Lista de Movimentações / Auditoria --- */
-.movimentacao-item,
-.auditoria-item {
+/* --- Cards e Itens (Dashboard e Histórico) --- */
+.card {
+    background-color: var(--color-background);
     border: 1px solid var(--color-border);
     padding: 15px;
-    border-radius: 6px;
+    border-radius: 8px;
     margin-bottom: 15px;
-    background-color: var(--color-background);
 }
 
-.movimentacao-item p,
-.auditoria-item p {
-    margin: 5px 0;
-    color: var(--color-text);
+/* Bordas laterais para identificação rápida */
+.veiculo-card, .auditoria-item {
+    border-left: 5px solid var(--color-primary);
 }
 
-/* Imagem da Assinatura */
-.movimentacao-item img {
-    margin-top: 10px;
-    border: 1px solid var(--color-secondary);
-    border-radius: 4px;
+/* --- Navegação Inferior --- */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background: var(--color-surface);
+    display: flex;
+    justify-content: space-around;
+    padding: 10px 0;
+    border-top: 1px solid var(--color-border);
+    z-index: 1000;
+}
+
+.nav-btn {
+    background: none;
+    border: none;
+    color: var(--color-secondary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 11px;
+    padding: 5px;
+    width: auto;
+    margin: 0;
+}
+
+.nav-btn i { font-size: 20px; margin-bottom: 4px; }
+
+.nav-btn.active { color: var(--color-primary); }
+
+/* --- Botão Flutuante (FAB) --- */
+#fab-action {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: var(--color-primary);
+    color: white;
+    font-size: 24px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    z-index: 999;
 }
 
 /* --- Canvas de Assinatura --- */
@@ -145,65 +167,30 @@ button:hover {
     display: block;
     border: 1px solid var(--color-primary);
     border-radius: 4px;
-    background-color: transparent; /* Permite que o fundo escuro do APP apareça */
-    touch-action: none; /* Melhora a experiência em touch */
+    background-color: #f0f0f0; /* Fundo levemente claro para ver a tinta preta */
+    touch-action: none;
     width: 100%;
     height: 150px;
-    box-sizing: border-box;
 }
 
-/* --- Controles do Header --- */
-.header-controls {
+/* --- REGRAS PARA IMPRESSÃO (PDF) --- */
+@media print {
+    body { background: white !important; color: black !important; }
+    .bottom-nav, #fab-action, header, .filtros, .btn { display: none !important; }
+    main { max-width: 100%; padding: 0; }
+    .card { border: 1px solid #ccc !important; color: black !important; background: white !important; page-break-inside: avoid; }
+    h1, h2, h3 { color: black !important; }
+}
+
+/* Checklist */
+.checklist label {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
-}
-
-.header-controls h2 {
-    margin: 0;
-}
-
-.header-controls button {
-    width: auto;
-    margin: 0;
-    padding: 8px 12px;
-}
-
-/* --- Modal de Edição --- */
-.modal {
-    display: none; 
-    position: fixed; 
-    z-index: 10;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgba(0,0,0,0.7); 
-}
-
-.modal-content {
-    background-color: var(--color-surface);
-    margin: 15% auto; 
-    padding: 20px;
-    border: 1px solid var(--color-primary);
-    border-radius: 8px;
-    width: 80%; 
-    max-width: 400px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-}
-
-.close-button {
-    color: var(--color-secondary);
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-}
-
-.close-button:hover,
-.close-button:focus {
-    color: var(--color-primary);
-    text-decoration: none;
+    gap: 10px;
+    background: var(--color-background);
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 5px;
     cursor: pointer;
 }
+.checklist input { width: auto; margin: 0; }
