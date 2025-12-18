@@ -1,6 +1,6 @@
 /* sw.js - Service Worker Consolidado */
 
-const CACHE_NAME = 'jsc-cache-v3'; // Versão do cache
+const CACHE_NAME = 'jsc-cache-v3.1'; // Versão do cache
 const urlsToCache = [
     './', 
     './index.html',
@@ -60,3 +60,4 @@ self.addEventListener('fetch', (event) => {
             })
     );
 });
+
