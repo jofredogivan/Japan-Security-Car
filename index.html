@@ -6,111 +6,118 @@
     <title>JSCAR - JAPAN SECURITY</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <meta name="theme-color" content="#FF0000">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
     <header>
-        <h1><i class="fas fa-shield-alt"></i> JSCAR - JAPAN SECURITY</h1>
+        <h2>JSCAR - JAPAN SECURITY</h2>
     </header>
 
-    <main id="app-content">
+    <main>
         <section id="dashboard" class="page">
-            <h2><i class="fas fa-car-side"></i> Frota Ativa</h2>
+            <h3><i class="fas fa-tachometer-alt"></i> Status da Frota</h3>
             <div id="movimentacoes-list"></div>
         </section>
 
         <section id="movimentacao" class="page hidden">
-            <h2>Registrar Movimentação</h2>
+            <h3>Registrar Movimentação</h3>
             <form id="form-movimentacao" class="card">
-                <label>Viatura:</label>
-                <select id="mov-placa" required></select>
+                <select id="mov-placa" required><option value="">Selecione a Viatura</option></select>
                 <input type="text" id="mov-motorista" placeholder="Nome do Motorista" required>
-                
-                <label>Operação:</label>
                 <select id="mov-tipo" required>
                     <option value="saida">Saída de Pátio</option>
                     <option value="entrada">Entrada de Pátio</option>
                 </select>
-
-                <label>Data e Hora:</label>
                 <input type="datetime-local" id="mov-data-hora" required>
+                
+                <input type="number" id="mov-km-atual" placeholder="KM Atual (Opcional)">
 
-                <label>KM Atual:</label>
-                <input type="number" id="mov-km-atual" placeholder="KM sugerido">
-
-                <div id="mov-checklist-container" class="checklist" style="margin: 15px 0; display: flex; flex-direction: column; gap: 8px;">
-                    <p style="color:#FF0000; font-weight:bold; margin-bottom:5px;">Checklist de Segurança:</p>
-                    <label><input type="checkbox"> Pneus e Estepe OK</label>
-                    <label><input type="checkbox"> Água e Óleo OK</label>
-                    <label><input type="checkbox"> Nível de Combustível OK</label>
-                    <label><input type="checkbox"> Luzes e Sirene OK</label>
+                <div id="mov-checklist-container" class="card" style="background:#222;">
+                    <p style="color:#FF0000; margin-top:0;">Checklist Rápido:</p>
+                    <label style="display:block;"><input type="checkbox"> Pneus e Estepe OK</label>
+                    <label style="display:block;"><input type="checkbox"> Água e Óleo OK</label>
+                    <label style="display:block;"><input type="checkbox"> Combustível OK</label>
+                    <label style="display:block;"><input type="checkbox"> Luzes e Sirene OK</label>
                 </div>
-
-                <textarea id="mov-observacao" placeholder="Observações/Avarias..."></textarea>
-
-                <label>Assinatura:</label>
+                
+                <textarea id="mov-observacao" placeholder="Observações/Avarias"></textarea>
+                
+                <p style="margin-bottom:5px;">Assinatura do Motorista:</p>
                 <canvas id="signature-pad" style="border: 1px solid #555; background: #eee; width: 100%; height: 150px; border-radius: 5px;"></canvas>
-                <button type="button" id="clear-signature" class="btn" style="background:#444; margin-bottom:15px;">Limpar Assinatura</button>
-
+                <button type="button" id="clear-signature" class="btn" style="background:#444; margin: 10px 0;">Limpar Assinatura</button>
+                
                 <button type="submit" class="btn btn-primary">Salvar Registro</button>
             </form>
         </section>
 
         <section id="historico" class="page hidden">
-            <h2>Relatórios de Plantão</h2>
+            <h3>Relatórios</h3>
             <div class="card">
-                <input type="datetime-local" id="filtro-data-inicio">
-                <input type="datetime-local" id="filtro-data-fim">
-                <button id="btn-buscar-auditoria" class="btn btn-primary" style="margin-top:10px;">Buscar Registros</button>
+                <select id="filtro-veiculo"><option value="">Todas as Viaturas</option></select>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div style="flex:1;">
+                        <small>Início:</small>
+                        <input type="date" id="filtro-data-inicio">
+                    </div>
+                    <div style="flex:1;">
+                        <small>Fim:</small>
+                        <input type="date" id="filtro-data-fim">
+                    </div>
+                </div>
+                <button id="btn-buscar-auditoria" class="btn btn-primary" style="margin-top:10px;">Filtrar Lista</button>
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button id="btn-export-pdf" class="btn" style="background:#E02B20; flex:1;"><i class="fas fa-file-pdf"></i> PDF</button>
+                    <button id="btn-export-excel" class="btn" style="background:#1D6F42; flex:1;"><i class="fas fa-file-excel"></i> Excel</button>
+                </div>
             </div>
             <div id="resultados-auditoria"></div>
         </section>
 
         <section id="atualizacao-km" class="page hidden">
-            <h2>Vistoria e Manutenção</h2>
+            <h3>Vistoria de KM</h3>
             <form id="form-atualizacao-km" class="card">
-                <label>Viatura:</label>
                 <select id="update-placa" required></select>
                 <input type="number" id="update-km-novo" placeholder="KM Real na Vistoria" required>
-                <div style="background:rgba(255,0,0,0.1); padding:15px; border:1px solid #f00; margin:10px 0;">
-                    <label style="display:flex; align-items:center; gap:10px; color:white; cursor:pointer;">
-                        <input type="checkbox" id="update-troca-oleo" style="width:20px; height:20px;"> FOI FEITA A TROCA DE ÓLEO?
-                    </label>
-                </div>
-                <button type="submit" class="btn btn-primary">Atualizar Viatura</button>
+                <button type="submit" class="btn btn-primary">Atualizar KM</button>
             </form>
         </section>
 
         <section id="cadastro-veiculo" class="page hidden">
-            <h2>Gestão de Frota</h2>
+            <h3>Gestão de Frota</h3>
             <form id="form-cadastro-veiculo" class="card">
-                <input type="text" id="veiculo-placa" placeholder="Placa (ex: ABC1234)" required>
-                <input type="text" id="veiculo-modelo" placeholder="Modelo/Prefixo" required>
+                <input type="text" id="veiculo-placa" placeholder="Placa (ex: ABC1D23)" required>
+                <input type="text" id="veiculo-modelo" placeholder="Modelo do Carro" required>
                 <input type="number" id="veiculo-km" placeholder="KM Inicial" required>
-                <button type="submit" class="btn btn-primary">Cadastrar Carro</button>
+                <button type="submit" class="btn btn-primary">Cadastrar Novo Carro</button>
             </form>
-            <div id="delete-veiculo-list"></div>
 
+            <h4>Viaturas Cadastradas</h4>
+            <div id="delete-veiculo-list"></div>
+            
             <div class="card" style="border: 1px dashed #FF0000; margin-top: 20px;">
-                <h3 style="color:#FF0000;">Segurança de Dados (Backup)</h3>
-                <div style="display: flex; gap: 10px;">
+                <p style="color:#FF0000; font-weight:bold; margin-top:0;">Segurança de Dados (Backup)</p>
+                <div style="display:flex; gap:10px;">
                     <button id="btn-exportar" class="btn" style="background:#2e7d32; flex:1;">Exportar</button>
                     <button id="btn-importar-trigger" class="btn" style="background:#1976d2; flex:1;">Importar</button>
                 </div>
-                <input type="file" id="input-importar" style="display: none;" accept=".json">
+                <input type="file" id="input-importar" style="display:none;" accept=".json">
             </div>
         </section>
     </main>
 
-    <button id="fab-action">+</button>
+    <button id="fab-action"><i class="fas fa-plus"></i></button>
 
     <nav class="bottom-nav">
-        <button class="nav-btn active" data-target="dashboard"><i class="fas fa-home"></i><span>Home</span></button>
-        <button class="nav-btn" data-target="movimentacao"><i class="fas fa-exchange-alt"></i><span>Mov</span></button>
-        <button class="nav-btn" data-target="historico"><i class="fas fa-history"></i><span>Relat</span></button>
-        <button class="nav-btn" data-target="atualizacao-km"><i class="fas fa-tools"></i><span>Vistoria</span></button>
-        <button class="nav-btn" data-target="cadastro-veiculo"><i class="fas fa-car"></i><span>Frota</span></button>
+        <button class="nav-btn active" data-target="dashboard"><i class="fas fa-home"></i>Home</button>
+        <button class="nav-btn" data-target="movimentacao"><i class="fas fa-exchange-alt"></i>Mov</button>
+        <button class="nav-btn" data-target="historico"><i class="fas fa-history"></i>Relat</button>
+        <button class="nav-btn" data-target="atualizacao-km"><i class="fas fa-tools"></i>Vistoria</button>
+        <button class="nav-btn" data-target="cadastro-veiculo"><i class="fas fa-car"></i>Frota</button>
     </nav>
 
     <script type="module" src="app.js"></script>
