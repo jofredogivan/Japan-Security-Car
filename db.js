@@ -1,4 +1,4 @@
-// db.js - Banco de Dados IndexedDB
+// db.js - Banco de Dados IndexedDB Atualizado para JSCar
 const DB_NAME = 'ControleViaturaDB';
 const DB_VERSION = 1;
 
@@ -8,6 +8,7 @@ export function openDB() {
 
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
+            // Criação das tabelas (Object Stores) se não existirem
             if (!db.objectStoreNames.contains('veiculos')) {
                 db.createObjectStore('veiculos', { keyPath: 'placa' });
             }
@@ -21,15 +22,12 @@ export function openDB() {
     });
 }
 
-// Operações de Veículos
+// --- FUNÇÕES DE VEÍCULOS ---
+
 export async function saveVeiculo(veiculo) {
     const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction('veiculos', 'readwrite');
-        transaction.objectStore('veiculos').put(veiculo);
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error);
-    });
+    const transaction = db.transaction('veiculos', 'readwrite');
+    transaction.objectStore('veiculos').put(veiculo);
 }
 
 export async function getAllVeiculos() {
@@ -50,11 +48,20 @@ export async function getVeiculoByPlaca(placa) {
     });
 }
 
+/**
+ * Atualiza o KM e opcionalmente a data da última troca de óleo
+ * @param {string} placa - Placa da viatura
+ * @param {number} novoKm - Novo KM registado
+ * @param {number|null} novaTrocaOleo - Se preenchido, define o novo KM de referência para manutenção
+ */
 export async function updateVeiculoKm(placa, novoKm, novaTrocaOleo = null) {
     const veiculo = await getVeiculoByPlaca(placa);
     if (veiculo) {
         veiculo.km_atual = novoKm;
-        if (novaTrocaOleo !== null) veiculo.km_ultima_troca = novaTrocaOleo;
+        // Se a troca de óleo foi marcada no formulário, atualizamos o marco de referência
+        if (novaTrocaOleo !== null) {
+            veiculo.km_ultima_troca = novaTrocaOleo;
+        }
         await saveVeiculo(veiculo);
     }
 }
@@ -65,7 +72,8 @@ export async function deleteVeiculo(placa) {
     transaction.objectStore('veiculos').delete(placa);
 }
 
-// Operações de Movimentação
+// --- FUNÇÕES DE MOVIMENTAÇÃO ---
+
 export async function saveMovimentacao(dados) {
     const db = await openDB();
     const transaction = db.transaction('movimentacoes', 'readwrite');
