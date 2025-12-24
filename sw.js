@@ -1,63 +1,37 @@
-/* sw.js - Service Worker Consolidado */
-
-const CACHE_NAME = 'jsc-cache-v3.1'; // Versão do cache
-const urlsToCache = [
-    './', 
-    './index.html',
-    './app.js',
-    './db.js',
-    './style.css',
-    './manifest.json', // Adicionado para garantir a instalação PWA
-    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css'
+const CACHE_NAME = 'jscar-v2'; // Mudamos de v1 para v2 para forçar atualização
+const ASSETS = [
+  './',
+  './index.html',
+  './style.css',
+  './app.js',
+  './db.js',
+  './manifest.json',
+  './images/icon-192x192.png',
+  './images/icon-512x512.png'
 ];
 
-// Instalação: Salva os arquivos no navegador
-self.addEventListener('install', (event) => {
-    event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then((cache) => {
-                console.log('SW: Arquivos armazenados no cache com sucesso.');
-                return cache.addAll(urlsToCache);
-            })
-            .catch(err => console.error('SW: Erro ao cachear arquivos:', err))
-    );
+// Instalação e Cache
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+  );
+  self.skipWaiting(); // Força o novo Service Worker a assumir o controle na hora
 });
 
-// Ativação: Remove caches de versões anteriores
-self.addEventListener('activate', (event) => {
-    const cacheWhitelist = [CACHE_NAME];
-    event.waitUntil(
-        caches.keys().then((cacheNames) => {
-            return Promise.all(
-                cacheNames.map((cacheName) => {
-                    if (cacheWhitelist.indexOf(cacheName) === -1) {
-                        console.log('SW: Removendo cache antigo:', cacheName);
-                        return caches.delete(cacheName);
-                    }
-                })
-            );
-        })
-    );
-    return self.clients.claim(); // Assume o controle da página na hora
+// Limpeza de caches antigos
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+      );
+    })
+  );
 });
 
-// Fetch: Intercepta e serve os arquivos do cache (Offline First)
-self.addEventListener('fetch', (event) => {
-    event.respondWith(
-        caches.match(event.request)
-            .then((response) => {
-                // Se o arquivo está no cache, retorna ele. Senão, busca na internet.
-                if (response) {
-                    return response;
-                }
-                
-                return fetch(event.request).catch(() => {
-                    // Se a internet falhar e for uma navegação de página, mostra o index.html
-                    if (event.request.mode === 'navigate') {
-                        return caches.match('./index.html'); 
-                    }
-                });
-            })
-    );
+// Resposta às requisições
+self.addEventListener('fetch', (e) => {
+  e.respondWith(
+    caches.match(e.request).then((res) => res || fetch(e.request))
+  );
 });
-
