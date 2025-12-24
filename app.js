@@ -1,4 +1,3 @@
-// app.js - VERSÃO FINAL UNIFICADA COM RELATÓRIO AGRUPADO
 import { 
     saveVeiculo, 
     getAllVeiculos, 
@@ -11,41 +10,28 @@ import {
     getAllMovimentacoes 
 } from './db.js';
 
-// -------------------------------------------------------------
 // 1. INICIALIZAÇÃO
-// -------------------------------------------------------------
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));
-    });
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         await openDB();
         setupNavigation();
-        setupBackup(); // Função de Backup/Importação incluída abaixo
+        setupBackup();
         setupCadastroVeiculo();
         setupMovimentacaoForm(); 
         setupHistorico(); 
         setupAtualizacaoKm(); 
         await loadVeiculosList();
-
-        // Botão flutuante para nova movimentação
+        
+        // Ativa o botão flutuante
         const fab = document.getElementById('fab-action');
-        if(fab) {
-            fab.addEventListener('click', () => {
-                document.querySelector('.nav-btn[data-target="movimentacao"]').click(); 
-            });
-        }
+        if(fab) fab.onclick = () => document.querySelector('.nav-btn[data-target="movimentacao"]').click();
+        
     } catch (err) {
-        console.error("Erro ao carregar banco de dados:", err);
+        console.error("Erro ao iniciar sistema:", err);
     }
 });
 
-// -------------------------------------------------------------
 // 2. NAVEGAÇÃO
-// -------------------------------------------------------------
 function setupNavigation() {
     const navButtons = document.querySelectorAll('.nav-btn');
     const pages = document.querySelectorAll('.page');
@@ -60,279 +46,239 @@ function setupNavigation() {
             const targetPage = document.getElementById(targetId);
             if (targetPage) {
                 targetPage.classList.remove('hidden');
-                // Recarga de dados por contexto
                 if (targetId === 'dashboard' || targetId === 'cadastro-veiculo') loadVeiculosList();
-                if (targetId === 'movimentacao') loadVeiculosForMovimentacao();
-                if (targetId === 'historico') loadVeiculosForHistorico();
-                if (targetId === 'atualizacao-km') loadVeiculosForKmUpdate();
+                if (targetId === 'movimentacao') fillSelect('mov-placa');
+                if (targetId === 'historico') fillSelect('filtro-veiculo');
+                if (targetId === 'atualizacao-km') fillSelect('update-placa');
             }
         });
     });
 }
 
-// -------------------------------------------------------------
-// 3. GESTÃO DE VEÍCULOS
-// -------------------------------------------------------------
-async function loadVeiculosList() {
-    const veiculos = await getAllVeiculos();
-    const dashList = document.getElementById('movimentacoes-list');
-    const cadList = document.getElementById('delete-veiculo-list');
-    if(!dashList || !cadList) return;
-
-    dashList.innerHTML = cadList.innerHTML = '';
-
-    if (veiculos.length === 0) {
-        const msg = '<div class="card card-placeholder">Nenhuma viatura cadastrada.</div>';
-        dashList.innerHTML = cadList.innerHTML = msg;
-        return;
-    }
-
-    veiculos.forEach(v => {
-        const precisaTrocar = (v.km_atual - v.km_ultima_troca) >= 10000;
-        const cor = precisaTrocar ? '#f44336' : '#4caf50';
-        
-        const cardHTML = `
-            <div class="card veiculo-card" style="border-left: 5px solid ${cor};">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <h3 style="margin:0;">${v.placa}</h3>
-                        <small>${v.modelo}</small>
-                    </div>
-                    <button class="btn btn-danger" onclick="window.delV('${v.placa}')" style="padding:5px 10px;"><i class="fas fa-trash"></i></button>
-                </div>
-                <p style="margin: 10px 0 5px 0;">KM Atual: <strong>${v.km_atual.toLocaleString('pt-BR')}</strong></p>
-                <p style="color:${cor}; font-weight:bold; font-size:13px;">
-                    ${precisaTrocar ? '🚨 TROCA DE ÓLEO NECESSÁRIA' : '✅ ÓLEO OK'}
-                </p>
-            </div>`;
-        
-        dashList.insertAdjacentHTML('beforeend', cardHTML);
-        cadList.insertAdjacentHTML('beforeend', cardHTML);
-    });
-}
-
-window.delV = async (p) => { if(confirm(`Excluir ${p}?`)) { await deleteVeiculo(p); loadVeiculosList(); } };
-
-function setupCadastroVeiculo() {
-    const form = document.getElementById('form-cadastro-veiculo');
-    if(!form) return;
-    form.onsubmit = async (e) => {
-        e.preventDefault();
-        const placa = document.getElementById('veiculo-placa').value.toUpperCase().trim();
-        const modelo = document.getElementById('veiculo-modelo').value.trim();
-        const km = parseInt(document.getElementById('veiculo-km').value);
-        await saveVeiculo({ placa, modelo, km_atual: km, km_ultima_troca: km });
-        alert("Veículo Cadastrado!");
-        e.target.reset(); loadVeiculosList();
-    };
-}
-
-// -------------------------------------------------------------
-// 4. MOVIMENTAÇÃO (KM NÃO OBRIGATÓRIO)
-// -------------------------------------------------------------
+// 3. MOVIMENTAÇÃO E ASSINATURA (CORRIGIDO)
 function setupMovimentacaoForm() {
     const canvas = document.getElementById('signature-pad');
-    if(!canvas) return;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const form = document.getElementById('form-movimentacao');
+    const selectPlaca = document.getElementById('mov-placa');
+    const inputKm = document.getElementById('mov-km-atual');
     let drawing = false;
 
-    // Ajuste de DPI do Canvas
-    const ratio = window.devicePixelRatio || 1;
-    canvas.width = canvas.offsetWidth * ratio;
-    canvas.height = canvas.offsetHeight * ratio;
-    ctx.scale(ratio, ratio);
-    ctx.strokeStyle = '#000000'; ctx.lineWidth = 2;
-
-    const getPos = (e) => {
-        const r = canvas.getBoundingClientRect();
-        const t = e.touches ? e.touches[0] : e;
-        return { x: t.clientX - r.left, y: t.clientY - r.top };
+    // Ajuste de DPI e Tamanho do Canvas
+    const resizeCanvas = () => {
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        canvas.width = canvas.offsetWidth * ratio;
+        canvas.height = canvas.offsetHeight * ratio;
+        ctx.scale(ratio, ratio);
+        ctx.strokeStyle = "#000000"; 
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
     };
-    canvas.onmousedown = canvas.ontouchstart = (e) => { drawing = true; ctx.beginPath(); const {x,y} = getPos(e); ctx.moveTo(x,y); };
-    canvas.onmousemove = canvas.ontouchmove = (e) => {
-        if (!drawing) return; const {x,y} = getPos(e); ctx.lineTo(x,y); ctx.stroke();
+    
+    // Observer para disparar o resize quando a aba de movimentação abrir
+    const observer = new MutationObserver(() => {
+        if(!document.getElementById('movimentacao').classList.contains('hidden')) {
+            setTimeout(resizeCanvas, 100);
+        }
+    });
+    observer.observe(document.getElementById('movimentacao'), { attributes: true });
+
+    // Lógica de desenho (Mouse e Touch)
+    const getPos = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: clientX - rect.left, y: clientY - rect.top };
+    };
+
+    const start = (e) => {
+        drawing = true;
+        const { x, y } = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        if(e.type === 'touchstart') e.preventDefault();
+    };
+
+    const move = (e) => {
+        if (!drawing) return;
+        const { x, y } = getPos(e);
+        ctx.lineTo(x, y);
+        ctx.stroke();
         if(e.type === 'touchmove') e.preventDefault();
     };
-    canvas.onmouseup = canvas.ontouchend = () => drawing = false;
-    document.getElementById('clear-signature').onclick = () => ctx.clearRect(0,0,canvas.width,canvas.height);
 
+    const stop = () => { drawing = false; };
+
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', stop);
+    canvas.addEventListener('touchstart', start, { passive: false });
+    canvas.addEventListener('touchmove', move, { passive: false });
+    canvas.addEventListener('touchend', stop);
+
+    document.getElementById('clear-signature').onclick = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        resizeCanvas();
+    };
+
+    // Atualiza KM ao selecionar placa
+    selectPlaca.onchange = async () => {
+        const v = await getVeiculoByPlaca(selectPlaca.value);
+        if (v) inputKm.value = v.km_atual;
+    };
+
+    // SALVAR REGISTRO
     form.onsubmit = async (e) => {
         e.preventDefault();
-        const kmIn = document.getElementById('mov-km-atual').value;
-        const placa = document.getElementById('mov-placa').value;
-        const km = kmIn !== "" ? parseInt(kmIn, 10) : null;
+        const placa = selectPlaca.value;
+        const kmVal = inputKm.value ? parseInt(inputKm.value) : null;
 
-        if (km !== null) {
+        if (kmVal !== null) {
             const v = await getVeiculoByPlaca(placa);
-            if (km < v.km_atual) return alert("Erro: KM informado é menor que o atual!");
+            if (kmVal < v.km_atual) return alert("Erro: KM informado é menor que o atual!");
             
             let novaTroca = null;
-            if ((km - v.km_ultima_troca) >= 10000) {
-                if (confirm("🚨 Troca de óleo vencida! Você trocou o óleo agora?")) novaTroca = km;
+            if ((kmVal - v.km_ultima_troca) >= 10000) {
+                if (confirm("🚨 Troca de óleo vencida! Você trocou o óleo agora?")) {
+                    novaTroca = kmVal;
+                }
             }
-            await updateVeiculoKm(placa, km, novaTroca);
+            await updateVeiculoKm(placa, kmVal, novaTroca);
         }
 
-        const dados = {
+        await saveMovimentacao({
             placa_veiculo: placa,
             motorista: document.getElementById('mov-motorista').value,
             tipo: document.getElementById('mov-tipo').value,
             data_hora: new Date(document.getElementById('mov-data-hora').value).toISOString(),
-            checklist: Array.from(document.querySelectorAll('#mov-checklist-container input:checked')).map(i => i.parentElement.textContent.trim()),
-            observacao: document.getElementById('mov-observacao').value,
+            km_atual: kmVal,
             assinatura: canvas.toDataURL(),
-            km_atual: km
-        };
+            checklist: Array.from(document.querySelectorAll('#mov-checklist-container input:checked')).map(i => i.parentElement.textContent.trim()),
+            observacao: document.getElementById('mov-observacao').value
+        });
 
-        await saveMovimentacao(dados);
-        alert("Salvo com sucesso!");
-        form.reset(); ctx.clearRect(0,0,canvas.width,canvas.height);
-        document.querySelector('.nav-btn[data-target="dashboard"]').click();
+        alert("Sucesso!");
+        window.location.reload();
     };
 }
 
-// -------------------------------------------------------------
-// 5. RELATÓRIOS E PDF
-// -------------------------------------------------------------
+// 4. HISTÓRICO E EXPORTAÇÃO
 function setupHistorico() {
-    const btnBusca = document.getElementById('btn-buscar-auditoria');
-    if(btnBusca) btnBusca.onclick = renderizarHistorico;
-
-    // Exportar PDF Agrupado
-    const btnPdf = document.getElementById('btn-export-pdf');
-    if(btnPdf) btnPdf.onclick = gerarRelatorioPDF;
-
-    // Exportar Excel
-    const btnExcel = document.getElementById('btn-export-excel');
-    if(btnExcel) btnExcel.onclick = exportarExcel;
+    document.getElementById('btn-buscar-auditoria').onclick = renderizarHistorico;
+    document.getElementById('btn-export-pdf').onclick = gerarPDF;
+    document.getElementById('btn-export-excel').onclick = gerarExcel;
 }
 
 async function renderizarHistorico() {
-    const placaFiltro = document.getElementById('filtro-veiculo').value;
+    const placa = document.getElementById('filtro-veiculo').value;
     const inicio = document.getElementById('filtro-data-inicio').value;
     const fim = document.getElementById('filtro-data-fim').value;
-    const resDiv = document.getElementById('resultados-auditoria');
+    const res = document.getElementById('resultados-auditoria');
 
     let movs = await getAllMovimentacoes();
     movs = movs.filter(m => {
-        const d = new Date(m.data_hora).getTime();
+        const d = m.data_hora.split('T')[0];
         let ok = true;
-        if (placaFiltro && m.placa_veiculo !== placaFiltro) ok = false;
-        if (inicio && d < new Date(inicio + 'T00:00').getTime()) ok = false;
-        if (fim && d > new Date(fim + 'T23:59').getTime()) ok = false;
+        if (placa && m.placa_veiculo !== placa) ok = false;
+        if (inicio && d < inicio) ok = false;
+        if (fim && d > fim) ok = false;
         return ok;
     }).sort((a,b) => new Date(b.data_hora) - new Date(a.data_hora));
 
-    resDiv.innerHTML = movs.length ? '' : '<p class="card">Nenhum registro.</p>';
-    movs.forEach(m => {
-        const cor = m.tipo === 'saida' ? '#f44336' : '#4caf50';
-        resDiv.insertAdjacentHTML('beforeend', `
-            <div class="card" style="border-left: 6px solid ${cor};">
-                <div style="display:flex; justify-content:space-between;">
-                    <strong>${m.tipo.toUpperCase()} - ${m.placa_veiculo}</strong>
-                    <button class="btn btn-danger" onclick="window.delMov(${m.id})" style="padding:2px 8px;">X</button>
-                </div>
-                <p>Motorista: ${m.motorista} | KM: ${m.km_atual || '---'}</p>
-                <small>${new Date(m.data_hora).toLocaleString('pt-BR')}</small>
-            </div>`);
-    });
+    res.innerHTML = movs.map(m => `
+        <div class="card" style="border-left: 5px solid ${m.tipo === 'saida' ? 'red' : 'green'};">
+            <div style="display:flex; justify-content:space-between;">
+                <b>${m.tipo.toUpperCase()} - ${m.placa_veiculo}</b>
+                <button onclick="window.delMov(${m.id})" style="background:none; border:none; color:red; cursor:pointer;">X</button>
+            </div>
+            <p>Motorista: ${m.motorista} | KM: ${m.km_atual || '---'}</p>
+            <small>${new Date(m.data_hora).toLocaleString('pt-BR')}</small>
+        </div>
+    `).join('');
 }
 
-async function gerarRelatorioPDF() {
+window.delMov = async (id) => { if(confirm("Remover registro?")) { await deleteMovimentacaoById(id); renderizarHistorico(); } };
+
+async function gerarPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const movs = await getAllMovimentacoes();
-    const veiculos = await getAllVeiculos();
-    const vMap = new Map(veiculos.map(v => [v.placa, v.modelo]));
-
-    doc.setFontSize(18);
-    doc.text("Relatório de Movimentação JSCAR", 14, 20);
-    
-    // Agrupamento por placa
-    const agrupado = {};
-    movs.forEach(m => {
-        if (!agrupado[m.placa_veiculo]) agrupado[m.placa_veiculo] = [];
-        agrupado[m.placa_veiculo].push(m);
-    });
-
-    let y = 30;
-    for (const placa in agrupado) {
-        doc.setFontSize(14);
-        doc.text(`Viatura: ${placa} - ${vMap.get(placa) || ''}`, 14, y);
-        y += 7;
-        
-        const rows = agrupado[placa].map(m => [
-            new Date(m.data_hora).toLocaleString('pt-BR'),
-            m.tipo.toUpperCase(),
-            m.motorista,
-            m.km_atual || '---'
-        ]);
-
-        doc.autoTable({
-            head: [['Data/Hora', 'Tipo', 'Motorista', 'KM']],
-            body: rows,
-            startY: y,
-            theme: 'grid'
-        });
-        y = doc.lastAutoTable.finalY + 10;
-    }
-    doc.save("Relatorio_JSCAR.pdf");
+    doc.text("Relatório de Movimentação - JSCAR", 14, 15);
+    const rows = movs.map(m => [new Date(m.data_hora).toLocaleString('pt-BR'), m.placa_veiculo, m.tipo, m.motorista, m.km_atual || '---']);
+    doc.autoTable({ head: [['Data', 'Placa', 'Tipo', 'Motorista', 'KM']], body: rows, startY: 22 });
+    doc.save("JSCAR_Relatorio.pdf");
 }
 
-async function exportarExcel() {
+async function gerarExcel() {
     const movs = await getAllMovimentacoes();
     const ws = XLSX.utils.json_to_sheet(movs);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Movimentacoes");
-    XLSX.writeFile(wb, "JSCAR_Dados.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Dados");
+    XLSX.writeFile(wb, "JSCAR_Export.xlsx");
 }
 
-window.delMov = async (id) => { if(confirm("Excluir?")) { await deleteMovimentacaoById(id); renderizarHistorico(); } };
-
-// -------------------------------------------------------------
-// 6. BACKUP E IMPORTAÇÃO
-// -------------------------------------------------------------
+// 5. BACKUP, CADASTRO E VISTORIA
 function setupBackup() {
     const btnExp = document.getElementById('btn-exportar');
     const btnImp = document.getElementById('btn-importar-trigger');
     const inputImp = document.getElementById('input-importar');
 
-    if(btnExp) {
-        btnExp.onclick = async () => {
-            const data = { v: await getAllVeiculos(), m: await getAllMovimentacoes() };
-            const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `JSCAR_BACKUP_${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-        };
-    }
+    btnExp.onclick = async () => {
+        const data = { v: await getAllVeiculos(), m: await getAllMovimentacoes() };
+        const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = "JSCAR_Backup.json";
+        a.click();
+    };
 
-    if(btnImp) btnImp.onclick = () => inputImp.click();
-    if(inputImp) {
-        inputImp.onchange = (e) => {
-            const reader = new FileReader();
-            reader.onload = async (ev) => {
-                const data = JSON.parse(ev.target.result);
-                if (data.v) for (let v of data.v) await saveVeiculo(v);
-                if (data.m) for (let m of data.m) { delete m.id; await saveMovimentacao(m); }
-                alert("Dados importados com sucesso!");
-                window.location.reload();
-            };
-            reader.readAsText(e.target.files[0]);
+    btnImp.onclick = () => inputImp.click();
+    inputImp.onchange = (e) => {
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+            const data = JSON.parse(ev.target.result);
+            if (data.v) for (let v of data.v) await saveVeiculo(v);
+            if (data.m) for (let m of data.m) { delete m.id; await saveMovimentacao(m); }
+            alert("Backup Restaurado!"); window.location.reload();
         };
-    }
+        reader.readAsText(e.target.files[0]);
+    };
 }
 
-// -------------------------------------------------------------
-// 7. VISTORIA E HELPERS
-// -------------------------------------------------------------
+async function loadVeiculosList() {
+    const vs = await getAllVeiculos();
+    const dash = document.getElementById('movimentacoes-list');
+    const cad = document.getElementById('delete-veiculo-list');
+    if(!dash) return;
+    dash.innerHTML = cad.innerHTML = vs.map(v => {
+        const troca = (v.km_atual - v.km_ultima_troca) >= 10000;
+        return `<div class="card" style="border-left:5px solid ${troca ? 'red' : 'green'};">
+            <b>${v.placa}</b> - KM: ${v.km_atual.toLocaleString()}
+            <p style="color:${troca ? 'red' : 'green'}; margin:0;">${troca ? '🚨 REVISÃO' : '✅ Óleo OK'}</p>
+            <button onclick="window.delV('${v.placa}')" style="font-size:10px; margin-top:5px;">Excluir</button>
+        </div>`;
+    }).join('');
+}
+
+window.delV = async (p) => { if(confirm("Excluir?")) { await deleteVeiculo(p); loadVeiculosList(); } };
+
+function setupCadastroVeiculo() {
+    document.getElementById('form-cadastro-veiculo').onsubmit = async (e) => {
+        e.preventDefault();
+        const km = parseInt(document.getElementById('veiculo-km').value);
+        await saveVeiculo({
+            placa: document.getElementById('veiculo-placa').value.toUpperCase(),
+            modelo: document.getElementById('veiculo-modelo').value,
+            km_atual: km,
+            km_ultima_troca: km
+        });
+        alert("Cadastrado!"); e.target.reset(); loadVeiculosList();
+    };
+}
+
 function setupAtualizacaoKm() {
-    const form = document.getElementById('form-atualizacao-km');
-    if(!form) return;
-    form.onsubmit = async (e) => {
+    document.getElementById('form-atualizacao-km').onsubmit = async (e) => {
         e.preventDefault();
         const p = document.getElementById('update-placa').value;
         const k = parseInt(document.getElementById('update-km-novo').value);
@@ -341,14 +287,9 @@ function setupAtualizacaoKm() {
     };
 }
 
-async function loadVeiculosForMovimentacao() { fillSelect('mov-placa'); }
-async function loadVeiculosForHistorico() { fillSelect('filtro-veiculo'); }
-async function loadVeiculosForKmUpdate() { fillSelect('update-placa'); }
-
 async function fillSelect(id) {
     const s = document.getElementById(id);
-    if(!s) return;
     const vs = await getAllVeiculos();
-    s.innerHTML = '<option value="">Selecione...</option>';
-    vs.forEach(v => s.add(new Option(`${v.placa} - ${v.modelo}`, v.placa)));
+    if(!s) return;
+    s.innerHTML = '<option value="">Selecione...</option>' + vs.map(v => `<option value="${v.placa}">${v.placa}</option>`).join('');
 }
