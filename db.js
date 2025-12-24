@@ -1,70 +1,98 @@
-const DB_NAME = 'ControleViaturaDB';
-const DB_VERSION = 1;
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>JSCar - Japan Security Car</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
 
-export function openDB() {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-        request.onupgradeneeded = (event) => {
-            const db = event.target.result;
-            if (!db.objectStoreNames.contains('veiculos')) {
-                db.createObjectStore('veiculos', { keyPath: 'placa' });
-            }
-            if (!db.objectStoreNames.contains('movimentacoes')) {
-                db.createObjectStore('movimentacoes', { keyPath: 'id', autoIncrement: true });
-            }
-        };
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
-}
+    <header>
+        <h1><i class="fas fa-shield-alt"></i> JSCar - Sincronismo</h1>
+    </header>
 
-export async function saveVeiculo(veiculo) {
-    const db = await openDB();
-    const tx = db.transaction('veiculos', 'readwrite');
-    tx.objectStore('veiculos').put(veiculo);
-}
+    <main id="app-content">
+        <section id="dashboard" class="page">
+            <h2>Status da Frota</h2>
+            <div id="movimentacoes-list"></div>
+        </section>
 
-export async function getAllVeiculos() {
-    const db = await openDB();
-    return new Promise((res) => {
-        const tx = db.transaction('veiculos', 'readonly');
-        tx.objectStore('veiculos').getAll().onsuccess = (e) => res(e.target.result);
-    });
-}
+        <section id="movimentacao" class="page hidden">
+            <h2>Registrar Movimentação</h2>
+            <form id="form-movimentacao" class="card">
+                <label>Viatura:</label>
+                <select id="mov-placa" required></select>
+                <input type="text" id="mov-motorista" placeholder="Motorista" required>
+                <select id="mov-tipo" required>
+                    <option value="saida">Saída</option>
+                    <option value="entrada">Entrada</option>
+                </select>
+                <input type="datetime-local" id="mov-data-hora" required>
+                <input type="number" id="mov-km-atual" placeholder="KM Atual (Sugerido)">
 
-export async function getVeiculoByPlaca(placa) {
-    const db = await openDB();
-    return new Promise((res) => {
-        const tx = db.transaction('veiculos', 'readonly');
-        tx.objectStore('veiculos').get(placa).onsuccess = (e) => res(e.target.result);
-    });
-}
+                <div id="mov-checklist-container" class="checklist" style="margin: 15px 0; display: flex; flex-direction: column; gap: 5px;">
+                    <label><input type="checkbox"> Pneus e Estepe OK</label>
+                    <label><input type="checkbox"> Água e Óleo OK</label>
+                    <label><input type="checkbox"> Nível de Combustível OK</label>
+                    <label><input type="checkbox"> Luzes e Sirene OK</label>
+                </div>
 
-export async function updateVeiculoKm(placa, novoKm, novaTrocaOleo = null) {
-    const v = await getVeiculoByPlaca(placa);
-    if (v) {
-        v.km_atual = novoKm;
-        if (novaTrocaOleo !== null) v.km_ultima_troca = novaTrocaOleo;
-        await saveVeiculo(v);
-    }
-}
+                <textarea id="mov-observacao" placeholder="Observações..."></textarea>
+                <canvas id="signature-pad" style="border: 1px solid #555; background: #eee; width: 100%; height: 150px;"></canvas>
+                <button type="button" id="clear-signature" class="btn" style="background:#444;">Limpar</button>
+                <button type="submit" class="btn btn-primary">Salvar</button>
+            </form>
+        </section>
 
-export async function deleteVeiculo(placa) {
-    const db = await openDB();
-    const tx = db.transaction('veiculos', 'readwrite');
-    tx.objectStore('veiculos').delete(placa);
-}
+        <section id="historico" class="page hidden">
+            <h2>Relatórios</h2>
+            <div class="card">
+                <input type="datetime-local" id="filtro-data-inicio">
+                <input type="datetime-local" id="filtro-data-fim">
+                <button id="btn-buscar-auditoria" class="btn btn-primary" style="margin-top:10px;">Buscar</button>
+            </div>
+            <div id="resultados-auditoria"></div>
+        </section>
 
-export async function saveMovimentacao(dados) {
-    const db = await openDB();
-    const tx = db.transaction('movimentacoes', 'readwrite');
-    tx.objectStore('movimentacoes').add(dados);
-}
+        <section id="atualizacao-km" class="page hidden">
+            <h2>Vistoria Noturna</h2>
+            <form id="form-atualizacao-km" class="card">
+                <select id="update-placa" required></select>
+                <input type="number" id="update-km-novo" placeholder="KM Real" required>
+                <label style="color:white;"><input type="checkbox" id="update-troca-oleo"> Trocou Óleo?</label>
+                <button type="submit" class="btn btn-primary">Atualizar</button>
+            </form>
+        </section>
 
-export async function getAllMovimentacoes() {
-    const db = await openDB();
-    return new Promise((res) => {
-        const tx = db.transaction('movimentacoes', 'readonly');
-        tx.objectStore('movimentacoes').getAll().onsuccess = (e) => res(e.target.result);
-    });
-}
+        <section id="cadastro-veiculo" class="page hidden">
+            <h2>Frota e Backup</h2>
+            <form id="form-cadastro-veiculo" class="card">
+                <input type="text" id="veiculo-placa" placeholder="Placa" required>
+                <input type="text" id="veiculo-modelo" placeholder="Modelo" required>
+                <input type="number" id="veiculo-km" placeholder="KM Inicial" required>
+                <button type="submit" class="btn btn-primary">Cadastrar</button>
+            </form>
+            <div id="delete-veiculo-list"></div>
+            <div class="card" style="border: 1px dashed red;">
+                <button id="btn-exportar" class="btn" style="background:green;">Exportar Backup</button>
+                <button id="btn-importar-trigger" class="btn" style="background:blue; margin-top:5px;">Importar Backup</button>
+                <input type="file" id="input-importar" style="display:none;" accept=".json">
+            </div>
+        </section>
+    </main>
+
+    <button id="fab-action">+</button>
+
+    <nav class="bottom-nav">
+        <button class="nav-btn active" data-target="dashboard"><i class="fas fa-home"></i><span>Home</span></button>
+        <button class="nav-btn" data-target="movimentacao"><i class="fas fa-exchange-alt"></i><span>Mov</span></button>
+        <button class="nav-btn" data-target="historico"><i class="fas fa-history"></i><span>Relat</span></button>
+        <button class="nav-btn" data-target="atualizacao-km"><i class="fas fa-tools"></i><span>Vistoria</span></button>
+        <button class="nav-btn" data-target="cadastro-veiculo"><i class="fas fa-car"></i><span>Frota</span></button>
+    </nav>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
