@@ -1,15 +1,14 @@
-/* style.css - VERSÃO ATUALIZADA */
+/* style.css - VERSÃO FINAL COM CORREÇÃO DE TOUCH */
 
-/* Definição de Variáveis e Tema Escuro - MANTIDOS */
 :root {
-    --color-primary: #FF0000; /* Vermelho principal */
-    --color-secondary: #AAAAAA; /* Cinza claro para detalhes */
-    --color-background: #121212; /* Fundo escuro */
-    --color-surface: #1E1E1E; /* Superfície de elementos */
-    --color-text: #E0E0E0; /* Texto claro */
-    --color-border: #333333; /* Borda sutil */
-    --color-success: #4CAF50; /* Verde para sucesso */
-    --color-error: #F44336; /* Vermelho para erro */
+    --color-primary: #FF0000;
+    --color-secondary: #AAAAAA;
+    --color-background: #121212;
+    --color-surface: #1E1E1E;
+    --color-text: #E0E0E0;
+    --color-border: #333333;
+    --color-success: #4CAF50;
+    --color-error: #F44336;
 }
 
 body {
@@ -19,7 +18,7 @@ body {
     margin: 0;
     padding: 0;
     line-height: 1.6;
-    padding-bottom: 70px; /* Espaço para a navegação inferior */
+    padding-bottom: 70px;
 }
 
 header {
@@ -31,11 +30,6 @@ header {
     position: sticky;
     top: 0;
     z-index: 100;
-}
-
-h1, h2, h3 {
-    color: var(--color-primary);
-    margin-top: 0;
 }
 
 main {
@@ -55,20 +49,7 @@ section {
 .hidden { display: none !important; }
 
 /* --- Formulário e Inputs --- */
-label {
-    display: block;
-    margin-bottom: 5px;
-    margin-top: 15px;
-    font-weight: bold;
-    color: var(--color-secondary);
-}
-
-input[type="text"],
-input[type="number"],
-input[type="date"],
-input[type="datetime-local"],
-select,
-textarea {
+input[type="text"], input[type="number"], input[type="date"], input[type="datetime-local"], select, textarea {
     width: 100%;
     padding: 12px;
     margin-bottom: 10px;
@@ -89,33 +70,15 @@ button, .btn {
     border-radius: 4px;
     cursor: pointer;
     font-size: 16px;
-    margin-top: 10px;
     transition: background-color 0.3s;
     width: 100%;
-    box-sizing: border-box;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
 }
 
-button:hover { background-color: #CC0000; }
-
-.btn-danger { background-color: var(--color-error); width: auto; }
-
-/* --- Cards e Itens (Dashboard e Histórico) --- */
-.card {
-    background-color: var(--color-background);
-    border: 1px solid var(--color-border);
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 15px;
-}
-
-/* Bordas laterais para identificação rápida */
-.veiculo-card, .auditoria-item {
-    border-left: 5px solid var(--color-primary);
-}
+.btn-danger { background-color: var(--color-error); width: auto; font-size: 12px; padding: 5px 10px; }
 
 /* --- Navegação Inferior --- */
 .bottom-nav {
@@ -138,16 +101,44 @@ button:hover { background-color: #CC0000; }
     flex-direction: column;
     align-items: center;
     font-size: 11px;
-    padding: 5px;
     width: auto;
-    margin: 0;
 }
-
-.nav-btn i { font-size: 20px; margin-bottom: 4px; }
 
 .nav-btn.active { color: var(--color-primary); }
 
-/* --- Botão Flutuante (FAB) --- */
+/* --- Canvas de Assinatura (Ajustado para Celular) --- */
+#signature-pad {
+    display: block;
+    width: 100%;
+    height: 180px;
+    background-color: #ffffff !important; /* Branco para destacar o traço preto */
+    border: 2px solid var(--color-primary);
+    border-radius: 4px;
+    cursor: crosshair;
+    
+    /* Crucial para funcionar no celular sem rolar a página */
+    touch-action: none; 
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Botão de Limpar Assinatura */
+#clear-signature {
+    background-color: #444;
+    margin-top: 5px;
+    margin-bottom: 15px;
+}
+
+/* --- Cards --- */
+.card {
+    background-color: var(--color-background);
+    border: 1px solid var(--color-border);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+/* FAB */
 #fab-action {
     position: fixed;
     bottom: 80px;
@@ -155,42 +146,5 @@ button:hover { background-color: #CC0000; }
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    background-color: var(--color-primary);
-    color: white;
-    font-size: 24px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     z-index: 999;
 }
-
-/* --- Canvas de Assinatura --- */
-#signature-pad {
-    display: block;
-    border: 1px solid var(--color-primary);
-    border-radius: 4px;
-    background-color: #f0f0f0; /* Fundo levemente claro para ver a tinta preta */
-    touch-action: none;
-    width: 100%;
-    height: 150px;
-}
-
-/* --- REGRAS PARA IMPRESSÃO (PDF) --- */
-@media print {
-    body { background: white !important; color: black !important; }
-    .bottom-nav, #fab-action, header, .filtros, .btn { display: none !important; }
-    main { max-width: 100%; padding: 0; }
-    .card { border: 1px solid #ccc !important; color: black !important; background: white !important; page-break-inside: avoid; }
-    h1, h2, h3 { color: black !important; }
-}
-
-/* Checklist */
-.checklist label {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--color-background);
-    padding: 10px;
-    border-radius: 4px;
-    margin-bottom: 5px;
-    cursor: pointer;
-}
-.checklist input { width: auto; margin: 0; }
