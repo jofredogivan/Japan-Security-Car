@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Controle de Viaturas</title>
+    <title>JSCar - Japan Security Car</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
 
     <header>
-        <h1><i class="fas fa-shield-alt"></i> JSCar - Japan Security Car</h1>
+        <h1><i class="fas fa-shield-alt"></i> JSCar - Sincronismo</h1>
     </header>
 
     <main id="app-content">
@@ -23,39 +23,42 @@
             <h2>Registrar Movimentação</h2>
             <form id="form-movimentacao">
                 <select id="mov-placa" required></select>
-                <input type="text" id="mov-motorista" placeholder="Nome do Motorista" required>
+                <input type="text" id="mov-motorista" placeholder="Motorista" required>
                 <select id="mov-tipo" required>
                     <option value="saida">Saída</option>
                     <option value="entrada">Entrada</option>
                 </select>
                 <input type="datetime-local" id="mov-data-hora" required>
-                <input type="number" id="mov-km-atual" placeholder="KM Atual (Opcional)">
-                
+                <input type="number" id="mov-km-atual" placeholder="KM Atual">
                 <div id="mov-checklist-container" class="checklist">
                     <label><input type="checkbox"> Pneus OK</label>
-                    <label><input type="checkbox"> Limpeza OK</label>
+                    <label><input type="checkbox"> Agua OK</label>
                     <label><input type="checkbox"> Combustível OK</label>
                 </div>
-
                 <textarea id="mov-observacao" placeholder="Observações..."></textarea>
-                
                 <label>Assinatura:</label>
-                <canvas id="signature-pad" style="border: 1px solid #555; background: #222; width: 100%; height: 150px; border-radius: 8px;"></canvas>
+                <canvas id="signature-pad"></canvas>
                 <button type="button" id="clear-signature" class="btn">Limpar Assinatura</button>
-                
                 <button type="submit" class="btn btn-primary">Salvar Registro</button>
             </form>
         </section>
 
         <section id="historico" class="page hidden">
-            <h2>Auditoria e Relatórios</h2>
+            <h2>Relatório de Plantão</h2>
             <div class="filtros card">
                 <select id="filtro-veiculo"></select>
-                <label>Início (Para Relatório):</label>
-                <input type="date" id="filtro-data-inicio">
-                <label>Fim:</label>
-                <input type="date" id="filtro-data-fim">
-                <button id="btn-buscar-auditoria" class="btn btn-primary" style="width: 100%;">Buscar no Histórico</button>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div style="flex: 1;">
+                        <label>Início do Plantão:</label>
+                        <input type="datetime-local" id="filtro-data-inicio">
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Fim do Plantão:</label>
+                        <input type="datetime-local" id="filtro-data-fim">
+                    </div>
+                </div>
+                <button id="btn-buscar-auditoria" class="btn btn-primary">Buscar Histórico</button>
+                <button id="btn-gerar-pdf" class="btn" style="background: #333; margin-top: 5px;"><i class="fas fa-file-pdf"></i> Gerar PDF Plantão</button>
             </div>
             <div id="resultados-auditoria"></div>
         </section>
@@ -63,25 +66,29 @@
         <section id="cadastro-veiculo" class="page hidden">
             <h2>Gestão de Frota</h2>
             <form id="form-cadastro-veiculo" class="card">
-                <input type="text" id="veiculo-placa" placeholder="Placa (ex: ABC-1234)" required>
-                <input type="text" id="veiculo-modelo" placeholder="Modelo do Carro" required>
-                <input type="number" id="veiculo-km" placeholder="KM Atual Inicial" required>
-                <button type="submit" class="btn btn-primary">Cadastrar Viatura</button>
+                <input type="text" id="veiculo-placa" placeholder="Placa" required>
+                <input type="text" id="veiculo-modelo" placeholder="Modelo" required>
+                <input type="number" id="veiculo-km" placeholder="KM Inicial" required>
+                <button type="submit" class="btn btn-primary">Cadastrar</button>
             </form>
-            <div id="delete-veiculo-list" style="margin-top: 20px;"></div>
+            <div id="delete-veiculo-list"></div>
         </section>
 
         <section id="atualizacao-km" class="page hidden">
-            <h2>Vistoria Noturna</h2>
+            <h2>Vistoria e Manutenção</h2>
             <form id="form-atualizacao-km" class="card">
                 <select id="update-placa" required></select>
-                <input type="number" id="update-km-novo" placeholder="KM Conferido na Vistoria" required>
-                <button type="submit" class="btn btn-primary">Atualizar KM</button>
+                <input type="number" id="update-km-novo" placeholder="KM Atual da Viatura" required>
+                <label class="checklist" style="border: 1px solid var(--color-primary); background: rgba(255,0,0,0.1);">
+                    <input type="checkbox" id="update-troca-oleo"> 
+                    <span style="color:white">FOI REALIZADA TROCA DE ÓLEO?</span>
+                </label>
+                <button type="submit" class="btn btn-primary">Atualizar KM e Óleo</button>
             </form>
         </section>
     </main>
 
-    <button id="fab-action" title="Nova Movimentação">+</button>
+    <button id="fab-action">+</button>
 
     <nav class="bottom-nav">
         <button class="nav-btn active" data-target="dashboard"><i class="fas fa-home"></i><span>Home</span></button>
