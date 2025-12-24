@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jscar-v2.2'; // Mudamos de v1 para v2 para forçar atualização
+const CACHE_NAME = 'jscar-v3'; // Mudamos de v1 para v2 para forçar atualização
 const ASSETS = [
   './',
   './index.html',
@@ -35,5 +35,6 @@ self.addEventListener('fetch', (e) => {
     caches.match(e.request).then((res) => res || fetch(e.request))
   );
 });
+
 
 
