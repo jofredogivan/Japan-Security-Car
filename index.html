@@ -3,19 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>JSCar - Japan Security Car</title>
+    <title>JSCAR - JAPAN SECURITY</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <meta name="theme-color" content="#FF0000">
 </head>
 <body>
 
     <header>
-        <h1><i class="fas fa-shield-alt"></i> JSCar - Japan Security</h1>
+        <h1><i class="fas fa-shield-alt"></i> JSCAR - JAPAN SECURITY</h1>
     </header>
 
     <main id="app-content">
         <section id="dashboard" class="page">
-            <h2>Status da Frota</h2>
+            <h2><i class="fas fa-car-side"></i> Frota Ativa</h2>
             <div id="movimentacoes-list"></div>
         </section>
 
@@ -24,61 +25,80 @@
             <form id="form-movimentacao" class="card">
                 <label>Viatura:</label>
                 <select id="mov-placa" required></select>
-                <input type="text" id="mov-motorista" placeholder="Motorista" required>
+                <input type="text" id="mov-motorista" placeholder="Nome do Motorista" required>
+                
+                <label>Operação:</label>
                 <select id="mov-tipo" required>
-                    <option value="saida">Saída</option>
-                    <option value="entrada">Entrada</option>
+                    <option value="saida">Saída de Pátio</option>
+                    <option value="entrada">Entrada de Pátio</option>
                 </select>
-                <input type="datetime-local" id="mov-data-hora" required>
-                <input type="number" id="mov-km-atual" placeholder="KM Atual (Sugerido)">
 
-                <div id="mov-checklist-container" class="checklist" style="margin: 15px 0; display: flex; flex-direction: column; gap: 5px;">
+                <label>Data e Hora:</label>
+                <input type="datetime-local" id="mov-data-hora" required>
+
+                <label>KM Atual:</label>
+                <input type="number" id="mov-km-atual" placeholder="KM sugerido">
+
+                <div id="mov-checklist-container" class="checklist" style="margin: 15px 0; display: flex; flex-direction: column; gap: 8px;">
+                    <p style="color:#FF0000; font-weight:bold; margin-bottom:5px;">Checklist de Segurança:</p>
                     <label><input type="checkbox"> Pneus e Estepe OK</label>
                     <label><input type="checkbox"> Água e Óleo OK</label>
                     <label><input type="checkbox"> Nível de Combustível OK</label>
                     <label><input type="checkbox"> Luzes e Sirene OK</label>
                 </div>
 
-                <textarea id="mov-observacao" placeholder="Observações..."></textarea>
-                <canvas id="signature-pad" style="border: 1px solid #555; background: #eee; width: 100%; height: 150px;"></canvas>
-                <button type="button" id="clear-signature" class="btn" style="background:#444;">Limpar</button>
-                <button type="submit" class="btn btn-primary">Salvar</button>
+                <textarea id="mov-observacao" placeholder="Observações/Avarias..."></textarea>
+
+                <label>Assinatura:</label>
+                <canvas id="signature-pad" style="border: 1px solid #555; background: #eee; width: 100%; height: 150px; border-radius: 5px;"></canvas>
+                <button type="button" id="clear-signature" class="btn" style="background:#444; margin-bottom:15px;">Limpar Assinatura</button>
+
+                <button type="submit" class="btn btn-primary">Salvar Registro</button>
             </form>
         </section>
 
         <section id="historico" class="page hidden">
-            <h2>Relatórios</h2>
+            <h2>Relatórios de Plantão</h2>
             <div class="card">
                 <input type="datetime-local" id="filtro-data-inicio">
                 <input type="datetime-local" id="filtro-data-fim">
-                <button id="btn-buscar-auditoria" class="btn btn-primary" style="margin-top:10px;">Buscar</button>
+                <button id="btn-buscar-auditoria" class="btn btn-primary" style="margin-top:10px;">Buscar Registros</button>
             </div>
             <div id="resultados-auditoria"></div>
         </section>
 
         <section id="atualizacao-km" class="page hidden">
-            <h2>Vistoria Noturna</h2>
+            <h2>Vistoria e Manutenção</h2>
             <form id="form-atualizacao-km" class="card">
+                <label>Viatura:</label>
                 <select id="update-placa" required></select>
-                <input type="number" id="update-km-novo" placeholder="KM Real" required>
-                <label style="color:white;"><input type="checkbox" id="update-troca-oleo"> Trocou Óleo?</label>
-                <button type="submit" class="btn btn-primary">Atualizar</button>
+                <input type="number" id="update-km-novo" placeholder="KM Real na Vistoria" required>
+                <div style="background:rgba(255,0,0,0.1); padding:15px; border:1px solid #f00; margin:10px 0;">
+                    <label style="display:flex; align-items:center; gap:10px; color:white; cursor:pointer;">
+                        <input type="checkbox" id="update-troca-oleo" style="width:20px; height:20px;"> FOI FEITA A TROCA DE ÓLEO?
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary">Atualizar Viatura</button>
             </form>
         </section>
 
         <section id="cadastro-veiculo" class="page hidden">
-            <h2>Frota e Backup</h2>
+            <h2>Gestão de Frota</h2>
             <form id="form-cadastro-veiculo" class="card">
-                <input type="text" id="veiculo-placa" placeholder="Placa" required>
-                <input type="text" id="veiculo-modelo" placeholder="Modelo" required>
+                <input type="text" id="veiculo-placa" placeholder="Placa (ex: ABC1234)" required>
+                <input type="text" id="veiculo-modelo" placeholder="Modelo/Prefixo" required>
                 <input type="number" id="veiculo-km" placeholder="KM Inicial" required>
-                <button type="submit" class="btn btn-primary">Cadastrar</button>
+                <button type="submit" class="btn btn-primary">Cadastrar Carro</button>
             </form>
             <div id="delete-veiculo-list"></div>
-            <div class="card" style="border: 1px dashed red;">
-                <button id="btn-exportar" class="btn" style="background:green;">Exportar Backup</button>
-                <button id="btn-importar-trigger" class="btn" style="background:blue; margin-top:5px;">Importar Backup</button>
-                <input type="file" id="input-importar" style="display:none;" accept=".json">
+
+            <div class="card" style="border: 1px dashed #FF0000; margin-top: 20px;">
+                <h3 style="color:#FF0000;">Segurança de Dados (Backup)</h3>
+                <div style="display: flex; gap: 10px;">
+                    <button id="btn-exportar" class="btn" style="background:#2e7d32; flex:1;">Exportar</button>
+                    <button id="btn-importar-trigger" class="btn" style="background:#1976d2; flex:1;">Importar</button>
+                </div>
+                <input type="file" id="input-importar" style="display: none;" accept=".json">
             </div>
         </section>
     </main>
