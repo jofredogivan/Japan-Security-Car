@@ -1,4 +1,4 @@
-// db.js - Banco de Dados IndexedDB Atualizado para JSCar
+// db.js - Banco de Dados IndexedDB para JSCar
 const DB_NAME = 'ControleViaturaDB';
 const DB_VERSION = 1;
 
@@ -8,7 +8,7 @@ export function openDB() {
 
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
-            // Criação das tabelas (Object Stores) se não existirem
+            // Criação das tabelas (Object Stores)
             if (!db.objectStoreNames.contains('veiculos')) {
                 db.createObjectStore('veiculos', { keyPath: 'placa' });
             }
@@ -49,19 +49,21 @@ export async function getVeiculoByPlaca(placa) {
 }
 
 /**
- * Atualiza o KM e opcionalmente a data da última troca de óleo
- * @param {string} placa - Placa da viatura
- * @param {number} novoKm - Novo KM registado
- * @param {number|null} novaTrocaOleo - Se preenchido, define o novo KM de referência para manutenção
+ * Atualiza o KM atual e, opcionalmente, o marco da última troca de óleo
+ * @param {string} placa - Placa do veículo
+ * @param {number} novoKm - KM lido no painel
+ * @param {number|null} novaTrocaOleo - Se enviado, redefine o KM inicial para contagem de manutenção
  */
 export async function updateVeiculoKm(placa, novoKm, novaTrocaOleo = null) {
     const veiculo = await getVeiculoByPlaca(placa);
     if (veiculo) {
         veiculo.km_atual = novoKm;
-        // Se a troca de óleo foi marcada no formulário, atualizamos o marco de referência
+        
+        // Se a troca de óleo foi realizada, atualizamos o ponto de referência
         if (novaTrocaOleo !== null) {
             veiculo.km_ultima_troca = novaTrocaOleo;
         }
+        
         await saveVeiculo(veiculo);
     }
 }
