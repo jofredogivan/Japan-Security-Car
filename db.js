@@ -1,7 +1,6 @@
 // db.js - BANCO DE DADOS INDEXEDDB
 const DB_NAME = 'JSCAR_DB';
 const DB_VERSION = 1;
-let db;
 
 export function openDB() {
     return new Promise((resolve, reject) => {
@@ -17,11 +16,7 @@ export function openDB() {
             }
         };
 
-        request.onsuccess = (e) => {
-            db = e.target.result;
-            resolve(db);
-        };
-
+        request.onsuccess = (e) => resolve(e.target.result);
         request.onerror = (e) => reject(e.target.error);
     });
 }
@@ -29,65 +24,77 @@ export function openDB() {
 // --- FUNÇÕES DE VEÍCULOS ---
 
 export async function saveVeiculo(veiculo) {
+    const db = await openDB();
     const tx = db.transaction('veiculos', 'readwrite');
-    await tx.objectStore('veiculos').put(veiculo);
-    return tx.complete;
+    tx.objectStore('veiculos').put(veiculo);
+    return new Promise(res => tx.oncomplete = () => res());
 }
 
 export async function getAllVeiculos() {
+    const db = await openDB();
     const tx = db.transaction('veiculos', 'readonly');
-    return new Promise(resolve => {
-        const request = tx.objectStore('veiculos').getAll();
-        request.onsuccess = () => resolve(request.result);
+    const store = tx.objectStore('veiculos');
+    return new Promise(res => {
+        const req = store.getAll();
+        req.onsuccess = () => res(req.result);
     });
 }
 
 export async function getVeiculoByPlaca(placa) {
+    const db = await openDB();
     const tx = db.transaction('veiculos', 'readonly');
-    return new Promise(resolve => {
-        const request = tx.objectStore('veiculos').get(placa);
-        request.onsuccess = () => resolve(request.result);
+    const store = tx.objectStore('veiculos');
+    return new Promise(res => {
+        const req = store.get(placa);
+        req.onsuccess = () => res(req.result);
     });
 }
 
 export async function deleteVeiculo(placa) {
+    const db = await openDB();
     const tx = db.transaction('veiculos', 'readwrite');
-    await tx.objectStore('veiculos').delete(placa);
-    return tx.complete;
+    tx.objectStore('veiculos').delete(placa);
+    return new Promise(res => tx.oncomplete = () => res());
 }
 
-// Atualiza KM e opcionalmente a data da última troca de óleo
 export async function updateVeiculoKm(placa, novoKm, kmTrocaOleo = null) {
-    const v = await getVeiculoByPlaca(placa);
-    if (!v) return;
-
-    v.km_atual = novoKm;
-    if (kmTrocaOleo !== null) {
-        v.km_ultima_troca = kmTrocaOleo;
-    }
-
+    const db = await openDB();
     const tx = db.transaction('veiculos', 'readwrite');
-    tx.objectStore('veiculos').put(v);
+    const store = tx.objectStore('veiculos');
+    
+    const req = store.get(placa);
+    req.onsuccess = () => {
+        const v = req.result;
+        if (v) {
+            v.km_atual = novoKm;
+            if (kmTrocaOleo !== null) v.km_ultima_troca = kmTrocaOleo;
+            store.put(v);
+        }
+    };
 }
 
 // --- FUNÇÕES DE MOVIMENTAÇÃO ---
 
 export async function saveMovimentacao(mov) {
+    const db = await openDB();
     const tx = db.transaction('movimentacoes', 'readwrite');
-    await tx.objectStore('movimentacoes').add(mov);
-    return tx.complete;
+    tx.objectStore('movimentacoes').add(mov);
+    return new Promise(res => tx.oncomplete = () => res());
 }
 
 export async function getAllMovimentacoes() {
+    const db = await openDB();
     const tx = db.transaction('movimentacoes', 'readonly');
-    return new Promise(resolve => {
-        const request = tx.objectStore('movimentacoes').getAll();
-        request.onsuccess = () => resolve(request.result);
+    const store = tx.objectStore('movimentacoes');
+    return new Promise(res => {
+        const req = store.getAll();
+        req.onsuccess = () => res(req.result);
     });
 }
 
 export async function deleteMovimentacaoById(id) {
+    const db = await openDB();
     const tx = db.transaction('movimentacoes', 'readwrite');
-    await tx.objectStore('movimentacoes').delete(id);
-    return tx.complete;
+    tx.objectStore('movimentacoes').delete(id);
+    return new Promise(res => tx.oncomplete = () => res());
 }
