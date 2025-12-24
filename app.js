@@ -1,4 +1,3 @@
-// app.js - VERSÃO FINAL UNIFICADA COM RELATÓRIO AGRUPADO
 import { 
     saveVeiculo, 
     getAllVeiculos, 
@@ -6,305 +5,379 @@ import {
     deleteVeiculo, 
     openDB, 
     saveMovimentacao, 
-    updateVeiculoKm,
-    deleteMovimentacaoById,
+    updateVeiculoKm, 
+    deleteMovimentacaoById, 
     getAllMovimentacoes 
 } from './db.js';
 
-// -------------------------------------------------------------
-// 1. INICIALIZAÇÃO
-// -------------------------------------------------------------
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));
-    });
-}
+// --- INICIALIZAÇÃO DO SISTEMA ---
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        await openDB();
+        console.log("JSCar: Banco de dados conectado.");
+        
+        // Carregamento inicial de dados
+        await loadVeiculosList();
+        
+        // Configuração de componentes
+        setupNavigation();
+        setupCadastroVeiculo();
+        setupMovimentacaoForm(); 
+        setupHistorico(); 
+        setupAtualizacaoKm();
+        
+    } catch (err) {
+        console.error("JSCar: Erro na inicialização:", err);
+    }
 
-document.addEventListener('DOMContentLoaded', () => {
-    openDB().then(() => loadVeiculosList());
-    setupNavigation();
-    setupCadastroVeiculo();
-    setupMovimentacaoForm(); 
-    setupHistorico(); 
-    setupAtualizacaoKm(); 
-
-    // Botão flutuante para nova movimentação
-    document.getElementById('fab-action').addEventListener('click', () => {
-        document.querySelector('.nav-btn[data-target="movimentacao"]').click(); 
-    });
+    // Botão flutuante de atalho
+    const fab = document.getElementById('fab-action');
+    if(fab) {
+        fab.onclick = () => document.querySelector('[data-target="movimentacao"]').click();
+    }
 });
 
-// -------------------------------------------------------------
-// 2. NAVEGAÇÃO
-// -------------------------------------------------------------
+// --- GESTÃO DE NAVEGAÇÃO ---
 function setupNavigation() {
     const navButtons = document.querySelectorAll('.nav-btn');
     const pages = document.querySelectorAll('.page');
 
     navButtons.forEach(button => {
-        button.addEventListener('click', (e) => {
-            const targetId = e.currentTarget.getAttribute('data-target');
-            navButtons.forEach(btn => btn.classList.remove('active'));
-            pages.forEach(page => page.classList.add('hidden'));
-            e.currentTarget.classList.add('active');
+        button.onclick = (e) => {
+            const target = e.currentTarget.getAttribute('data-target');
             
-            const targetPage = document.getElementById(targetId);
-            if (targetPage) {
-                targetPage.classList.remove('hidden');
-                // Recarga de dados por contexto
-                if (targetId === 'dashboard' || targetId === 'cadastro-veiculo') loadVeiculosList();
-                if (targetId === 'movimentacao') loadVeiculosForMovimentacao();
-                if (targetId === 'historico') loadVeiculosForHistorico();
-                if (targetId === 'atualizacao-km') loadVeiculosForKmUpdate();
-            }
-        });
+            navButtons.forEach(b => b.classList.remove('active'));
+            pages.forEach(p => p.classList.add('hidden'));
+            
+            e.currentTarget.classList.add('active');
+            document.getElementById(target).classList.remove('hidden');
+
+            // Atualização de dados conforme a aba aberta
+            if (target === 'dashboard') loadVeiculosList();
+            if (target === 'movimentacao') fillSelect('mov-placa');
+            if (target === 'historico') fillSelect('filtro-veiculo');
+            if (target === 'atualizacao-km') fillSelect('update-placa');
+        };
     });
 }
 
-// -------------------------------------------------------------
-// 3. GESTÃO DE VEÍCULOS
-// -------------------------------------------------------------
+// --- DASHBOARD (HOME) E LISTAGEM ---
 async function loadVeiculosList() {
-    const veiculos = await getAllVeiculos();
-    const dashList = document.getElementById('movimentacoes-list');
+    const vs = await getAllVeiculos();
+    const dash = document.getElementById('movimentacoes-list');
     const cadList = document.getElementById('delete-veiculo-list');
-    const isCad = !document.getElementById('cadastro-veiculo').classList.contains('hidden');
-
-    dashList.innerHTML = cadList.innerHTML = '';
-
-    if (veiculos.length === 0) {
-        const msg = '<div class="card card-placeholder">Nenhuma viatura cadastrada.</div>';
-        dashList.innerHTML = cadList.innerHTML = msg;
-        return;
-    }
-
-    veiculos.forEach(v => {
-        const precisaTrocar = (v.km_atual - v.km_ultima_troca) >= 10000;
-        const cor = precisaTrocar ? '#f44336' : '#4caf50';
+    
+    if(dash) dash.innerHTML = '';
+    if(cadList) cadList.innerHTML = '';
+    
+    vs.forEach(v => {
+        const kmDesdeTroca = v.km_atual - (v.km_ultima_troca || 0);
+        const precisaTroca = kmDesdeTroca >= 10000;
+        const corStatus = precisaTroca ? '#F44336' : '#4CAF50';
         
-        const cardHTML = `
-            <div class="card veiculo-card" id="veiculo-card-${v.placa}" style="border-left: 5px solid ${cor};">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
+        const cardHtml = `
+            <div class="card" style="border-left: 6px solid ${corStatus}; margin-bottom: 15px; padding: 15px; background: #1E1E1E; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                     <div>
-                        <h3 style="margin:0;">${v.placa}</h3>
-                        <small>${v.modelo}</small>
+                        <h3 style="margin: 0; color: #FF0000;">${v.placa}</h3>
+                        <small style="color: #AAA;">${v.modelo}</small>
                     </div>
-                    ${isCad ? `<div>
-                        <button class="btn btn-danger" onclick="window.delV('${v.placa}')" style="padding:5px 10px;"><i class="fas fa-trash"></i></button>
-                    </div>` : ''}
                 </div>
                 <p style="margin: 10px 0 5px 0;">KM Atual: <strong>${v.km_atual.toLocaleString('pt-BR')}</strong></p>
-                <p style="color:${cor}; font-weight:bold; font-size:13px;">
-                    ${precisaTrocar ? '🚨 TROCA DE ÓLEO NECESSÁRIA' : '✅ ÓLEO OK'}
+                <p style="color: ${corStatus}; font-weight: bold; font-size: 13px; margin: 0;">
+                    ${precisaTroca ? '🚨 MANUTENÇÃO: TROCA DE ÓLEO VENCIDA' : '✅ STATUS: ÓLEO OK'}
                 </p>
+                ${!document.getElementById('cadastro-veiculo').classList.contains('hidden') ? 
+                    `<button onclick="window.delV('${v.placa}')" class="btn-danger" style="margin-top:10px; padding: 5px 10px; width: auto;">Excluir Viatura</button>` : ''}
             </div>`;
-        
-        if (isCad) cadList.insertAdjacentHTML('beforeend', cardHTML);
-        else dashList.insertAdjacentHTML('beforeend', cardHTML);
+            
+        if(dash) dash.insertAdjacentHTML('beforeend', cardHtml);
+        if(cadList && !document.getElementById('cadastro-veiculo').classList.contains('hidden')) {
+            cadList.insertAdjacentHTML('beforeend', cardHtml);
+        }
     });
 }
 
-window.delV = async (p) => { if(confirm(`Excluir ${p}?`)) { await deleteVeiculo(p); loadVeiculosList(); } };
+window.delV = async (placa) => {
+    if(confirm(`Deseja realmente excluir a viatura ${placa}?`)) {
+        await deleteVeiculo(placa);
+        loadVeiculosList();
+    }
+};
 
-function setupCadastroVeiculo() {
-    document.getElementById('form-cadastro-veiculo').onsubmit = async (e) => {
-        e.preventDefault();
-        const placa = document.getElementById('veiculo-placa').value.toUpperCase().trim();
-        const modelo = document.getElementById('veiculo-modelo').value.trim();
-        const km = parseInt(document.getElementById('veiculo-km').value);
-        await saveVeiculo({ placa, modelo, km_atual: km, km_ultima_troca: km });
-        alert("Veículo Cadastrado!");
-        e.target.reset(); loadVeiculosList();
-        document.querySelector('.nav-btn[data-target="dashboard"]').click();
-    };
-}
-
-// -------------------------------------------------------------
-// 4. MOVIMENTAÇÃO (SAÍDA / ENTRADA)
-// -------------------------------------------------------------
+// --- REGISTRO DE MOVIMENTAÇÃO (SAÍDA/ENTRADA) ---
 function setupMovimentacaoForm() {
     const canvas = document.getElementById('signature-pad');
+    if(!canvas) return;
     const ctx = canvas.getContext('2d');
-    const form = document.getElementById('form-movimentacao');
     let drawing = false;
 
-    const resize = () => {
+    // Ajuste de DPI para assinatura
+    const resizeCanvas = () => {
         const ratio = window.devicePixelRatio || 1;
         canvas.width = canvas.offsetWidth * ratio;
         canvas.height = canvas.offsetHeight * ratio;
         ctx.scale(ratio, ratio);
-        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
     };
-    window.addEventListener('resize', resize); resize();
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
 
+    // Eventos de desenho
     const getPos = (e) => {
-        const r = canvas.getBoundingClientRect();
-        const t = e.touches ? e.touches[0] : e;
-        return { x: t.clientX - r.left, y: t.clientY - r.top };
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: clientX - rect.left, y: clientY - rect.top };
     };
-    canvas.onmousedown = canvas.ontouchstart = (e) => { drawing = true; ctx.beginPath(); const {x,y} = getPos(e); ctx.moveTo(x,y); };
+
+    canvas.onmousedown = canvas.ontouchstart = (e) => {
+        drawing = true;
+        ctx.beginPath();
+        const { x, y } = getPos(e);
+        ctx.moveTo(x, y);
+        if(e.type === 'touchstart') e.preventDefault();
+    };
+
     canvas.onmousemove = canvas.ontouchmove = (e) => {
-        if (!drawing) return; const {x,y} = getPos(e); ctx.lineTo(x,y); ctx.stroke();
+        if (!drawing) return;
+        const { x, y } = getPos(e);
+        ctx.lineTo(x, y);
+        ctx.stroke();
         if(e.type === 'touchmove') e.preventDefault();
     };
+
     canvas.onmouseup = canvas.ontouchend = () => drawing = false;
-    document.getElementById('clear-signature').onclick = () => ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    form.onsubmit = async (e) => {
+    document.getElementById('clear-signature').onclick = () => ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    document.getElementById('form-movimentacao').onsubmit = async (e) => {
         e.preventDefault();
-        const kmVal = document.getElementById('mov-km-atual').value;
         const placa = document.getElementById('mov-placa').value;
-        const km = kmVal !== "" ? parseInt(kmVal, 10) : null;
+        const kmInput = document.getElementById('mov-km-atual').value;
+        const km = kmInput ? parseInt(kmInput) : null;
 
-        if (km !== null) {
+        if (km) {
             const v = await getVeiculoByPlaca(placa);
-            if (km < v.km_atual) return alert("Erro: KM informado é menor que o atual!");
-            let novaTroca = null;
-            if ((km - v.km_ultima_troca) >= 10000) {
-                if (confirm("🚨 Troca de óleo vencida! Você trocou o óleo agora?")) novaTroca = km;
+            if (km < v.km_atual) {
+                alert("Erro: O KM informado não pode ser menor que o atual!");
+                return;
             }
-            await updateVeiculoKm(placa, km, novaTroca);
+            await updateVeiculoKm(placa, km, null);
         }
 
         const dados = {
             placa_veiculo: placa,
             motorista: document.getElementById('mov-motorista').value,
             tipo: document.getElementById('mov-tipo').value,
-            data_hora: new Date(document.getElementById('mov-data-hora').value).toISOString(),
-            checklist: Array.from(document.querySelectorAll('#mov-checklist-container input:checked')).map(i => i.parentElement.textContent.trim()),
-            observacao: document.getElementById('mov-observacao').value,
+            data_hora: document.getElementById('mov-data-hora').value,
+            km_atual: km,
             assinatura: canvas.toDataURL(),
-            km_atual: km
+            checklist: Array.from(document.querySelectorAll('#mov-checklist-container input:checked')).map(i => i.parentElement.textContent.trim()),
+            observacao: document.getElementById('mov-observacao').value
         };
 
         await saveMovimentacao(dados);
-        alert("Salvo com sucesso!");
-        form.reset(); ctx.clearRect(0,0,canvas.width,canvas.height);
-        document.querySelector('.nav-btn[data-target="dashboard"]').click();
+        alert("Movimentação registrada com sucesso!");
+        e.target.reset();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        document.querySelector('[data-target="dashboard"]').click();
     };
 }
 
-// -------------------------------------------------------------
-// 5. HISTÓRICO E RELATÓRIO PDF (SINCRONIZADO POR CARRO)
-// -------------------------------------------------------------
-function setupHistorico() {
-    // Botão de Busca na Tela
-    document.getElementById('btn-buscar-auditoria').onclick = async () => renderizarHistorico();
+// --- VISTORIA NOTURNA E TROCA DE ÓLEO ---
+function setupAtualizacaoKm() {
+    const form = document.getElementById('form-atualizacao-km');
+    if(!form) return;
 
-    // Botão de Gerar Relatório Diário (PDF)
-    const btnPdf = document.createElement('button');
-    btnPdf.className = "btn btn-primary";
-    btnPdf.style.marginTop = "10px";
-    btnPdf.innerHTML = '<i class="fas fa-file-pdf"></i> Gerar Relatório do Dia';
-    btnPdf.onclick = gerarRelatorioPDF;
-    document.getElementById('historico').insertBefore(btnPdf, document.getElementById('resultados-auditoria'));
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        const placa = document.getElementById('update-placa').value;
+        const novoKm = parseInt(document.getElementById('update-km-novo').value);
+        const trocouOleo = document.getElementById('update-troca-oleo').checked;
+
+        const v = await getVeiculoByPlaca(placa);
+        if (novoKm < v.km_atual) {
+            alert("Erro: KM informado é menor que o KM registrado no sistema.");
+            return;
+        }
+
+        // Se marcou a troca, o campo km_ultima_troca recebe o novoKm
+        await updateVeiculoKm(placa, novoKm, trocouOleo ? novoKm : null);
+        
+        alert(trocouOleo ? "KM e Manutenção de Óleo atualizados!" : "KM de Vistoria atualizado!");
+        e.target.reset();
+        loadVeiculosList();
+    };
+}
+
+// --- HISTÓRICO E RELATÓRIO PDF POR PLANTÃO ---
+function setupHistorico() {
+    const btnBusca = document.getElementById('btn-buscar-auditoria');
+    const btnPdf = document.getElementById('btn-gerar-pdf');
+
+    if(btnBusca) btnBusca.onclick = renderizarHistorico;
+    if(btnPdf) btnPdf.onclick = gerarRelatorioPDF;
 }
 
 async function renderizarHistorico() {
-    const placaFiltro = document.getElementById('filtro-veiculo').value;
     const inicio = document.getElementById('filtro-data-inicio').value;
     const fim = document.getElementById('filtro-data-fim').value;
-    const resDiv = document.getElementById('resultados-auditoria');
+    const placaFiltro = document.getElementById('filtro-veiculo').value;
+    const resultados = document.getElementById('resultados-auditoria');
 
-    let movs = await getAllMovimentacoes();
-    const veiculos = await getAllVeiculos();
-    const vMap = new Map(veiculos.map(v => [v.placa, v.modelo]));
+    let registros = await getAllMovimentacoes();
 
-    movs = movs.filter(m => {
-        const d = new Date(m.data_hora).getTime();
-        let ok = true;
-        if (placaFiltro && m.placa_veiculo !== placaFiltro) ok = false;
-        if (inicio && d < new Date(inicio + 'T00:00').getTime()) ok = false;
-        if (fim && d > new Date(fim + 'T23:59').getTime()) ok = false;
-        return ok;
-    }).sort((a,b) => new Date(b.data_hora) - new Date(a.data_hora));
+    // Filtro por período exato (Data e Hora)
+    if (inicio) registros = registros.filter(r => r.data_hora >= inicio);
+    if (fim) registros = registros.filter(r => r.data_hora <= fim);
+    if (placaFiltro) registros = registros.filter(r => r.placa_veiculo === placaFiltro);
 
-    resDiv.innerHTML = movs.length ? '' : '<p class="card">Nenhum registro.</p>';
-    movs.forEach(m => {
-        const cor = m.tipo === 'saida' ? '#f44336' : '#4caf50';
-        resDiv.insertAdjacentHTML('beforeend', `
-            <div class="card" style="border-left: 6px solid ${cor};">
+    // Ordenação Decrescente (Mais recentes primeiro na tela)
+    registros.sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora));
+
+    resultados.innerHTML = registros.length === 0 ? '<p class="card">Nenhum registro encontrado para este período.</p>' : '';
+
+    registros.forEach(r => {
+        const cor = r.tipo === 'saida' ? '#F44336' : '#4CAF50';
+        resultados.insertAdjacentHTML('beforeend', `
+            <div class="card" style="border-left: 5px solid ${cor};">
                 <div style="display:flex; justify-content:space-between;">
-                    <div>
-                        <strong style="color:${cor}">${m.tipo.toUpperCase()}</strong> - <strong>${m.placa_veiculo}</strong><br>
-                        <small>${vMap.get(m.placa_veiculo) || ''}</small>
-                    </div>
-                    <button class="btn btn-danger" onclick="window.delMov(${m.id})" style="padding:2px 8px;">X</button>
+                    <strong>${r.tipo.toUpperCase()} - ${r.placa_veiculo}</strong>
+                    <button class="btn-danger" onclick="window.delMov(${r.id})" style="padding:2px 8px; width:auto; font-size:12px;">X</button>
                 </div>
-                <p style="margin:5px 0;">Motorista: ${m.motorista} | KM: ${m.km_atual || 'Vistoria Pendente'}</p>
-                <small>${new Date(m.data_hora).toLocaleString('pt-BR')}</small>
-            </div>`);
+                <p style="margin: 5px 0;">Motorista: ${r.motorista} | KM: ${r.km_atual || '---'}</p>
+                <small>${new Date(r.data_hora).toLocaleString('pt-BR')}</small>
+            </div>
+        `);
     });
 }
+
+window.delMov = async (id) => {
+    if(confirm("Deseja excluir este registro do histórico?")) {
+        await deleteMovimentacaoById(id);
+        renderizarHistorico();
+    }
+};
 
 async function gerarRelatorioPDF() {
-    const dataAlvo = document.getElementById('filtro-data-inicio').value;
-    if (!dataAlvo) return alert("Selecione a data no filtro de 'Início' primeiro.");
+    const inicio = document.getElementById('filtro-data-inicio').value;
+    const fim = document.getElementById('filtro-data-fim').value;
 
-    const movs = await getAllMovimentacoes();
+    if (!inicio || !fim) {
+        alert("Por favor, selecione o Início e o Fim do plantão para gerar o PDF.");
+        return;
+    }
+
+    const todosRegistros = await getAllMovimentacoes();
     const veiculos = await getAllVeiculos();
     const vMap = new Map(veiculos.map(v => [v.placa, v.modelo]));
 
-    // Filtra apenas o dia e agrupa por placa
-    const diaMovs = movs.filter(m => m.data_hora.startsWith(dataAlvo));
-    const agrupado = {};
-    diaMovs.forEach(m => {
-        if (!agrupado[m.placa_veiculo]) agrupado[m.placa_veiculo] = [];
-        agrupado[m.placa_veiculo].push(m);
-    });
+    // Filtra pelo período do plantão
+    const registrosPlantao = todosRegistros.filter(r => r.data_hora >= inicio && r.data_hora <= fim);
 
-    let conteudo = `<h1 style="text-align:center;">Relatório Diário - ${dataAlvo.split('-').reverse().join('/')}</h1>`;
-
-    for (const placa in agrupado) {
-        agrupado[placa].sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
-        conteudo += `
-            <div style="border:1px solid #000; margin-bottom:20px; padding:10px;">
-                <h3 style="background:#eee; margin:0; padding:5px;">Viatura: ${placa} - ${vMap.get(placa)}</h3>
-                <table style="width:100%; border-collapse:collapse; margin-top:10px;">
-                    <thead><tr style="border-bottom:1px solid #000; text-align:left;">
-                        <th>Tipo</th><th>Hora</th><th>Motorista</th><th>KM</th>
-                    </tr></thead>
-                    <tbody>`;
-        agrupado[placa].forEach(m => {
-            conteudo += `
-                <tr style="border-bottom:1px solid #eee;">
-                    <td>${m.tipo.toUpperCase()}</td>
-                    <td>${new Date(m.data_hora).toLocaleTimeString('pt-BR')}</td>
-                    <td>${m.motorista}</td>
-                    <td>${m.km_atual || '---'}</td>
-                </tr>`;
-        });
-        conteudo += `</tbody></table></div>`;
+    if (registrosPlantao.length === 0) {
+        alert("Não há movimentações registradas neste intervalo de tempo.");
+        return;
     }
 
+    // AGRUPAMENTO POR VIATURA
+    const agrupado = {};
+    registrosPlantao.forEach(r => {
+        if (!agrupado[r.placa_veiculo]) agrupado[r.placa_veiculo] = [];
+        agrupado[r.placa_veiculo].push(r);
+    });
+
+    let htmlPdf = `
+        <div style="font-family: Arial, sans-serif; padding: 20px;">
+            <h1 style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px;">Relatório de Plantão - JSCar</h1>
+            <p style="text-align: center;"><strong>Período:</strong> ${new Date(inicio).toLocaleString()} até ${new Date(fim).toLocaleString()}</p>
+    `;
+
+    for (const placa in agrupado) {
+        // Ordena cronologicamente dentro do grupo do carro
+        agrupado[placa].sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
+
+        htmlPdf += `
+            <div style="margin-top: 30px; border: 1px solid #ccc; padding: 10px; page-break-inside: avoid;">
+                <h3 style="background: #eee; padding: 8px; margin-top: 0;">Viatura: ${placa} - ${vMap.get(placa) || 'Modelo não identificado'}</h3>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid #000; text-align: left; background: #f9f9f9;">
+                            <th style="padding: 8px;">Tipo</th>
+                            <th style="padding: 8px;">Data/Hora</th>
+                            <th style="padding: 8px;">Motorista</th>
+                            <th style="padding: 8px;">KM</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        agrupado[placa].forEach(m => {
+            htmlPdf += `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 8px;"><strong>${m.tipo.toUpperCase()}</strong></td>
+                    <td style="padding: 8px;">${new Date(m.data_hora).toLocaleString('pt-BR')}</td>
+                    <td style="padding: 8px;">${m.motorista}</td>
+                    <td style="padding: 8px;">${m.km_atual || '---'}</td>
+                </tr>
+            `;
+        });
+
+        htmlPdf += `</tbody></table></div>`;
+    }
+
+    htmlPdf += `</div>`;
+
     const win = window.open('', '_blank');
-    win.document.write(`<html><head><style>body{font-family:sans-serif;} table td{padding:5px;}</style></head><body>${conteudo}</body></html>`);
+    win.document.write(`<html><head><title>Relatorio_Plantao_JSCar</title></head><body>${htmlPdf}</body></html>`);
     win.document.close();
-    win.print();
+    
+    setTimeout(() => {
+        win.print();
+        win.close();
+    }, 500);
 }
 
-window.delMov = async (id) => { if(confirm("Excluir registro?")) { await deleteMovimentacaoById(id); renderizarHistorico(); } };
-
-// -------------------------------------------------------------
-// 6. VISTORIA NOTURNA E HELPERS
-// -------------------------------------------------------------
-function setupAtualizacaoKm() {
-    document.getElementById('form-atualizacao-km').onsubmit = async (e) => {
-        e.preventDefault();
-        const p = document.getElementById('update-placa').value;
-        const k = parseInt(document.getElementById('update-km-novo').value);
-        await updateVeiculoKm(p, k, null);
-        alert("KM Atualizado!"); e.target.reset();
-    };
-}
-
-async function loadVeiculosForMovimentacao() { fillSelect('mov-placa'); }
-async function loadVeiculosForHistorico() { fillSelect('filtro-veiculo'); }
-async function loadVeiculosForKmUpdate() { fillSelect('update-placa'); }
-
+// --- HELPERS ---
 async function fillSelect(id) {
-    const s = document.getElementById(id);
+    const select = document.getElementById(id);
+    if(!select) return;
     const vs = await getAllVeiculos();
-    s.innerHTML = '<option value="">Selecione...</option>';
-    vs.forEach(v => s.add(new Option(`${v.placa} - ${v.modelo}`, v.placa)));
+    
+    // Mantém a primeira opção padrão
+    const primeiraOpcao = select.options[0]?.text || "Selecione a Viatura";
+    select.innerHTML = `<option value="">${primeiraOpcao}</option>`;
+    
+    vs.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.placa;
+        opt.textContent = `${v.placa} - ${v.modelo}`;
+        select.appendChild(opt);
+    });
+}
+
+function setupCadastroVeiculo() {
+    const form = document.getElementById('form-cadastro-veiculo');
+    if(!form) return;
+
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        const placa = document.getElementById('veiculo-placa').value.toUpperCase().trim();
+        const modelo = document.getElementById('veiculo-modelo').value.trim();
+        const km = parseInt(document.getElementById('veiculo-km').value);
+
+        await saveVeiculo({
+            placa,
+            modelo,
+            km_atual: km,
+            km_ultima_troca: km // Inicia a contagem de óleo do zero
+        });
+
+        alert("Veículo cadastrado na frota com sucesso!");
+        e.target.reset();
+        loadVeiculosList();
+    };
 }
