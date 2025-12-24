@@ -1,11 +1,14 @@
-const DB_NAME = 'ControleViaturaDB';
+// db.js - BANCO DE DADOS INDEXEDDB
+const DB_NAME = 'JSCAR_DB';
 const DB_VERSION = 1;
+let db;
 
 export function openDB() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
-        request.onupgradeneeded = (event) => {
-            const db = event.target.result;
+
+        request.onupgradeneeded = (e) => {
+            const db = e.target.result;
             if (!db.objectStoreNames.contains('veiculos')) {
                 db.createObjectStore('veiculos', { keyPath: 'placa' });
             }
@@ -13,61 +16,78 @@ export function openDB() {
                 db.createObjectStore('movimentacoes', { keyPath: 'id', autoIncrement: true });
             }
         };
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
+
+        request.onsuccess = (e) => {
+            db = e.target.result;
+            resolve(db);
+        };
+
+        request.onerror = (e) => reject(e.target.error);
     });
 }
 
+// --- FUNÇÕES DE VEÍCULOS ---
+
 export async function saveVeiculo(veiculo) {
-    const db = await openDB();
     const tx = db.transaction('veiculos', 'readwrite');
-    tx.objectStore('veiculos').put(veiculo);
+    await tx.objectStore('veiculos').put(veiculo);
+    return tx.complete;
 }
 
 export async function getAllVeiculos() {
-    const db = await openDB();
-    return new Promise((res) => {
-        const tx = db.transaction('veiculos', 'readonly');
-        const req = tx.objectStore('veiculos').getAll();
-        req.onsuccess = () => res(req.result);
+    const tx = db.transaction('veiculos', 'readonly');
+    return new Promise(resolve => {
+        const request = tx.objectStore('veiculos').getAll();
+        request.onsuccess = () => resolve(request.result);
     });
 }
 
 export async function getVeiculoByPlaca(placa) {
-    const db = await openDB();
-    return new Promise((res) => {
-        const tx = db.transaction('veiculos', 'readonly');
-        const req = tx.objectStore('veiculos').get(placa);
-        req.onsuccess = () => res(req.result);
+    const tx = db.transaction('veiculos', 'readonly');
+    return new Promise(resolve => {
+        const request = tx.objectStore('veiculos').get(placa);
+        request.onsuccess = () => resolve(request.result);
     });
-}
-
-export async function updateVeiculoKm(placa, novoKm, novaTrocaOleo = null) {
-    const v = await getVeiculoByPlaca(placa);
-    if (v) {
-        v.km_atual = novoKm;
-        if (novaTrocaOleo !== null) v.km_ultima_troca = novaTrocaOleo;
-        await saveVeiculo(v);
-    }
 }
 
 export async function deleteVeiculo(placa) {
-    const db = await openDB();
     const tx = db.transaction('veiculos', 'readwrite');
-    tx.objectStore('veiculos').delete(placa);
+    await tx.objectStore('veiculos').delete(placa);
+    return tx.complete;
 }
 
-export async function saveMovimentacao(dados) {
-    const db = await openDB();
+// Atualiza KM e opcionalmente a data da última troca de óleo
+export async function updateVeiculoKm(placa, novoKm, kmTrocaOleo = null) {
+    const v = await getVeiculoByPlaca(placa);
+    if (!v) return;
+
+    v.km_atual = novoKm;
+    if (kmTrocaOleo !== null) {
+        v.km_ultima_troca = kmTrocaOleo;
+    }
+
+    const tx = db.transaction('veiculos', 'readwrite');
+    tx.objectStore('veiculos').put(v);
+}
+
+// --- FUNÇÕES DE MOVIMENTAÇÃO ---
+
+export async function saveMovimentacao(mov) {
     const tx = db.transaction('movimentacoes', 'readwrite');
-    tx.objectStore('movimentacoes').add(dados);
+    await tx.objectStore('movimentacoes').add(mov);
+    return tx.complete;
 }
 
 export async function getAllMovimentacoes() {
-    const db = await openDB();
-    return new Promise((res) => {
-        const tx = db.transaction('movimentacoes', 'readonly');
-        const req = tx.objectStore('movimentacoes').getAll();
-        req.onsuccess = () => res(req.result);
+    const tx = db.transaction('movimentacoes', 'readonly');
+    return new Promise(resolve => {
+        const request = tx.objectStore('movimentacoes').getAll();
+        request.onsuccess = () => resolve(request.result);
     });
+}
+
+export async function deleteMovimentacaoById(id) {
+    const tx = db.transaction('movimentacoes', 'readwrite');
+    await tx.objectStore('movimentacoes').delete(id);
+    return tx.complete;
 }
