@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// 2. CONTROLE DE NAVEGAÇÃO
+// 2. NAVEGAÇÃO
 function setupNavigation() {
     const navButtons = document.querySelectorAll('.nav-btn');
     const pages = document.querySelectorAll('.page');
@@ -48,7 +48,7 @@ function setupNavigation() {
     });
 }
 
-// 3. MOVIMENTAÇÃO E ASSINATURA (CELULAR OK)
+// 3. MOVIMENTAÇÃO E ASSINATURA
 function setupMovimentacaoForm() {
     const canvas = document.getElementById('signature-pad');
     if (!canvas) return;
@@ -148,34 +148,42 @@ async function loadVeiculosList() {
 
 window.delV = async (p) => { if(confirm("Excluir Viatura?")) { await deleteVeiculo(p); loadVeiculosList(); } };
 
-// 5. HISTÓRICO E PDF (REVISADO)
+// 5. HISTÓRICO E PDF (PESQUISA POR DATA E HORA)
 function setupHistorico() {
-    document.getElementById('btn-buscar-auditoria').onclick = renderizarHistorico;
-    document.getElementById('btn-export-pdf').onclick = gerarPDF;
-    document.getElementById('btn-export-excel').onclick = gerarExcel;
+    const btnBusca = document.getElementById('btn-buscar-auditoria');
+    const btnPdf = document.getElementById('btn-export-pdf');
+    const btnExcel = document.getElementById('btn-export-excel');
+
+    if(btnBusca) btnBusca.onclick = renderizarHistorico;
+    if(btnPdf) btnPdf.onclick = gerarPDF;
+    if(btnExcel) btnExcel.onclick = gerarExcel;
 }
 
 async function renderizarHistorico() {
     const placa = document.getElementById('filtro-veiculo').value;
-    const inicio = document.getElementById('filtro-data-inicio').value;
-    const fim = document.getElementById('filtro-data-fim').value;
+    const inicioRaw = document.getElementById('filtro-data-inicio').value;
+    const fimRaw = document.getElementById('filtro-data-fim').value;
     const res = document.getElementById('resultados-auditoria');
 
     let movs = await getAllMovimentacoes();
+    
+    const dataInicio = inicioRaw ? new Date(inicioRaw) : null;
+    const dataFim = fimRaw ? new Date(fimRaw) : null;
+
     movs = movs.filter(m => {
-        const d = m.data_hora.split('T')[0]; // Pega apenas a data YYYY-MM-DD
+        const dataMov = new Date(m.data_hora);
         if (placa && m.placa_veiculo !== placa) return false;
-        if (inicio && d < inicio) return false;
-        if (fim && d > fim) return false;
+        if (dataInicio && dataMov < dataInicio) return false;
+        if (dataFim && dataMov > dataFim) return false;
         return true;
     }).sort((a,b) => new Date(b.data_hora) - new Date(a.data_hora));
 
     res.innerHTML = movs.map(m => `
-        <div class="card">
+        <div class="card" style="border-left: 5px solid ${m.tipo === 'saida' ? '#f44336' : '#4caf50'}">
             <b>${m.tipo.toUpperCase()} - ${m.placa_veiculo}</b><br>
-            <small>${new Date(m.data_hora).toLocaleString()}</small><br>
+            <small>${new Date(m.data_hora).toLocaleString('pt-BR')}</small><br>
             <span>Motorista: ${m.motorista} | KM: ${m.km_atual || '---'}</span>
-            <button onclick="window.delMov(${m.id})" style="background:none; border:none; color:red; float:right;">Apagar</button>
+            <button onclick="window.delMov(${m.id})" style="background:none; border:none; color:red; float:right; cursor:pointer;">Apagar</button>
         </div>
     `).join('');
 }
@@ -185,23 +193,26 @@ async function gerarPDF() {
     const doc = new jsPDF();
     let movs = await getAllMovimentacoes();
     
-    // Filtros da tela para o PDF
-    const inicio = document.getElementById('filtro-data-inicio').value;
-    const fim = document.getElementById('filtro-data-fim').value;
+    const inicioRaw = document.getElementById('filtro-data-inicio').value;
+    const fimRaw = document.getElementById('filtro-data-fim').value;
     const placaFiltro = document.getElementById('filtro-veiculo').value;
 
+    const dataInicio = inicioRaw ? new Date(inicioRaw) : null;
+    const dataFim = fimRaw ? new Date(fimRaw) : null;
+
+    // Filtro cronológico para o PDF
     movs = movs.filter(m => {
-        const d = m.data_hora.split('T')[0];
+        const dataMov = new Date(m.data_hora);
         if (placaFiltro && m.placa_veiculo !== placaFiltro) return false;
-        if (inicio && d < inicio) return false;
-        if (fim && d > fim) return false;
+        if (dataInicio && dataMov < dataInicio) return false;
+        if (dataFim && dataMov > dataFim) return false;
         return true;
     }).sort((a,b) => new Date(a.data_hora) - new Date(b.data_hora));
 
-    const tituloData = inicio ? new Date(inicio).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
+    const textoPeriodo = dataInicio ? dataInicio.toLocaleString('pt-BR') : new Date().toLocaleDateString('pt-BR');
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.text(`Relatório Diário - ${tituloData}`, 105, 20, { align: "center" });
+    doc.setFontSize(16);
+    doc.text(`Relatório de Movimentação - ${textoPeriodo}`, 105, 20, { align: "center" });
 
     let yPos = 35;
     const veiculosUnicos = [...new Set(movs.map(m => m.placa_veiculo))];
@@ -212,7 +223,7 @@ async function gerarPDF() {
 
         if (yPos > 240) { doc.addPage(); yPos = 20; }
 
-        // Desenha a Moldura da Viatura (Box)
+        // Desenha a Moldura da Viatura (Igual à sua imagem)
         doc.setDrawColor(0);
         doc.rect(14, yPos, 182, 10); 
         doc.setFontSize(12);
@@ -239,7 +250,7 @@ async function gerarPDF() {
         yPos = doc.lastAutoTable.finalY + 15;
     });
 
-    doc.save(`Relatorio_JSCAR.pdf`);
+    doc.save(`Relatorio_JSCAR_${new Date().getTime()}.pdf`);
 }
 
 async function gerarExcel() {
@@ -250,6 +261,8 @@ async function gerarExcel() {
     XLSX.writeFile(wb, "Relatorio_JSCAR.xlsx");
 }
 
+window.delMov = async (id) => { if(confirm("Remover registro?")) { await deleteMovimentacaoById(id); renderizarHistorico(); } };
+
 // 6. AUXILIARES E BACKUP
 async function fillSelect(id) {
     const s = document.getElementById(id);
@@ -258,43 +271,56 @@ async function fillSelect(id) {
 }
 
 function setupCadastroVeiculo() {
-    document.getElementById('form-cadastro-veiculo').onsubmit = async (e) => {
-        e.preventDefault();
-        const km = parseInt(document.getElementById('veiculo-km').value);
-        await saveVeiculo({
-            placa: document.getElementById('veiculo-placa').value.toUpperCase(),
-            modelo: document.getElementById('veiculo-modelo').value,
-            km_atual: km,
-            km_ultima_troca: km
-        });
-        alert("Cadastrado!"); e.target.reset(); loadVeiculosList();
-    };
+    const form = document.getElementById('form-cadastro-veiculo');
+    if(form) {
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const km = parseInt(document.getElementById('veiculo-km').value);
+            await saveVeiculo({
+                placa: document.getElementById('veiculo-placa').value.toUpperCase(),
+                modelo: document.getElementById('veiculo-modelo').value,
+                km_atual: km,
+                km_ultima_troca: km
+            });
+            alert("Viatura cadastrada!"); e.target.reset(); loadVeiculosList();
+        };
+    }
 }
 
 function setupAtualizacaoKm() {
-    document.getElementById('form-atualizacao-km').onsubmit = async (e) => {
-        e.preventDefault();
-        const p = document.getElementById('update-placa').value;
-        const k = parseInt(document.getElementById('update-km-novo').value);
-        await updateVeiculoKm(p, k, null);
-        alert("KM Atualizado!"); e.target.reset(); loadVeiculosList();
-    };
+    const form = document.getElementById('form-atualizacao-km');
+    if(form) {
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const p = document.getElementById('update-placa').value;
+            const k = parseInt(document.getElementById('update-km-novo').value);
+            await updateVeiculoKm(p, k, null);
+            alert("KM Atualizado!"); e.target.reset(); loadVeiculosList();
+        };
+    }
 }
 
 function setupBackup() {
-    document.getElementById('btn-exportar').onclick = async () => {
+    const btnExp = document.getElementById('btn-exportar');
+    const btnImpTrigger = document.getElementById('btn-importar-trigger');
+    const inputImp = document.getElementById('input-importar');
+
+    if(btnExp) btnExp.onclick = async () => {
         const data = { v: await getAllVeiculos(), m: await getAllMovimentacoes() };
         const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download="jscar_backup.json"; a.click();
     };
-    document.getElementById('btn-importar-trigger').onclick = () => document.getElementById('input-importar').click();
-    document.getElementById('input-importar').onchange = (e) => {
+
+    if(btnImpTrigger) btnImpTrigger.onclick = () => inputImp.click();
+    if(inputImp) inputImp.onchange = (e) => {
         const reader = new FileReader();
         reader.onload = async (ev) => {
-            const data = JSON.parse(ev.target.result);
-            if (data.v) for (let v of data.v) await saveVeiculo(v);
-            if (data.m) for (let m of data.m) { delete m.id; await saveMovimentacao(m); }
-            alert("Backup Restaurado!"); window.location.reload();
+            try {
+                const data = JSON.parse(ev.target.result);
+                if (data.v) for (let v of data.v) await saveVeiculo(v);
+                if (data.m) for (let m of data.m) { delete m.id; await saveMovimentacao(m); }
+                alert("Backup Restaurado!"); window.location.reload();
+            } catch (err) { alert("Erro ao importar arquivo."); }
         };
         reader.readAsText(e.target.files[0]);
     };
