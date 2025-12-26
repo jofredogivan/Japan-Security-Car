@@ -148,7 +148,7 @@ async function loadVeiculosList() {
 
 window.delV = async (p) => { if(confirm("Excluir Viatura?")) { await deleteVeiculo(p); loadVeiculosList(); } };
 
-// 5. HISTÓRICO E PDF (PESQUISA POR DATA E HORA)
+// 5. HISTÓRICO E PDF
 function setupHistorico() {
     const btnBusca = document.getElementById('btn-buscar-auditoria');
     const btnPdf = document.getElementById('btn-export-pdf');
@@ -192,6 +192,7 @@ async function gerarPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     let movs = await getAllMovimentacoes();
+    const veiculosCadastrados = await getAllVeiculos(); // Busca veículos atuais para garantir o modelo
     
     const inicioRaw = document.getElementById('filtro-data-inicio').value;
     const fimRaw = document.getElementById('filtro-data-fim').value;
@@ -200,7 +201,6 @@ async function gerarPDF() {
     const dataInicio = inicioRaw ? new Date(inicioRaw) : null;
     const dataFim = fimRaw ? new Date(fimRaw) : null;
 
-    // Filtro cronológico para o PDF
     movs = movs.filter(m => {
         const dataMov = new Date(m.data_hora);
         if (placaFiltro && m.placa_veiculo !== placaFiltro) return false;
@@ -209,21 +209,23 @@ async function gerarPDF() {
         return true;
     }).sort((a,b) => new Date(a.data_hora) - new Date(b.data_hora));
 
-    const textoPeriodo = dataInicio ? dataInicio.toLocaleString('pt-BR') : new Date().toLocaleDateString('pt-BR');
+    const dataTitulo = dataInicio ? dataInicio.toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
-    doc.text(`Relatório de Movimentação - ${textoPeriodo}`, 105, 20, { align: "center" });
+    doc.text(`Relatório de Movimentação - ${dataTitulo}`, 105, 20, { align: "center" });
 
     let yPos = 35;
     const veiculosUnicos = [...new Set(movs.map(m => m.placa_veiculo))];
 
     veiculosUnicos.forEach(placa => {
         const movsVeiculo = movs.filter(m => m.placa_veiculo === placa);
-        const modelo = movsVeiculo[0].modelo_veiculo || "---";
+        
+        // CORREÇÃO: Busca o modelo no registro da mov ou no cadastro principal
+        const vInfo = veiculosCadastrados.find(v => v.placa === placa);
+        const modelo = movsVeiculo[0].modelo_veiculo || (vInfo ? vInfo.modelo : "---");
 
         if (yPos > 240) { doc.addPage(); yPos = 20; }
 
-        // Desenha a Moldura da Viatura (Igual à sua imagem)
         doc.setDrawColor(0);
         doc.rect(14, yPos, 182, 10); 
         doc.setFontSize(12);
@@ -250,7 +252,7 @@ async function gerarPDF() {
         yPos = doc.lastAutoTable.finalY + 15;
     });
 
-    doc.save(`Relatorio_JSCAR_${new Date().getTime()}.pdf`);
+    doc.save(`Relatorio_JSCAR.pdf`);
 }
 
 async function gerarExcel() {
