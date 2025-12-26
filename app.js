@@ -16,7 +16,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupAtualizacaoKm(); 
         await loadVeiculosList();
         
-        // Botão flutuante para atalho de movimentação
         const fab = document.getElementById('fab-action');
         if(fab) fab.onclick = () => document.querySelector('.nav-btn[data-target="movimentacao"]').click();
         
@@ -25,7 +24,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// 2. CONTROLE DE NAVEGAÇÃO ENTRE ABAS
+// 2. CONTROLE DE NAVEGAÇÃO
 function setupNavigation() {
     const navButtons = document.querySelectorAll('.nav-btn');
     const pages = document.querySelectorAll('.page');
@@ -33,16 +32,13 @@ function setupNavigation() {
     navButtons.forEach(button => {
         button.addEventListener('click', (e) => {
             const targetId = e.currentTarget.getAttribute('data-target');
-            
             navButtons.forEach(btn => btn.classList.remove('active'));
             pages.forEach(page => page.classList.add('hidden'));
-            
             e.currentTarget.classList.add('active');
             const targetPage = document.getElementById(targetId);
             
             if (targetPage) {
                 targetPage.classList.remove('hidden');
-                // Recarrega dados específicos de cada aba ao abrir
                 if (targetId === 'dashboard' || targetId === 'cadastro-veiculo') loadVeiculosList();
                 if (targetId === 'movimentacao') fillSelect('mov-placa');
                 if (targetId === 'historico') fillSelect('filtro-veiculo');
@@ -52,7 +48,7 @@ function setupNavigation() {
     });
 }
 
-// 3. MOVIMENTAÇÃO E ASSINATURA (CORREÇÃO PARA CELULAR)
+// 3. MOVIMENTAÇÃO E ASSINATURA (CELULAR OK)
 function setupMovimentacaoForm() {
     const canvas = document.getElementById('signature-pad');
     if (!canvas) return;
@@ -68,7 +64,6 @@ function setupMovimentacaoForm() {
         ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.lineCap = "round";
     };
     
-    // Ajusta o canvas quando a aba fica visível
     const observer = new MutationObserver(() => {
         if(!document.getElementById('movimentacao').classList.contains('hidden')) {
             setTimeout(resizeCanvas, 200);
@@ -100,11 +95,10 @@ function setupMovimentacaoForm() {
         e.preventDefault();
         const placa = document.getElementById('mov-placa').value;
         const kmVal = document.getElementById('mov-km-atual').value ? parseInt(document.getElementById('mov-km-atual').value) : null;
+        const v = await getVeiculoByPlaca(placa);
 
         if (kmVal !== null) {
-            const v = await getVeiculoByPlaca(placa);
             if (kmVal < v.km_atual) return alert("Erro: KM informado é menor que o atual!");
-            
             let novaTroca = null;
             if ((kmVal - v.km_ultima_troca) >= 10000) {
                 if (confirm("🚨 Troca de óleo vencida! Você trocou o óleo agora?")) novaTroca = kmVal;
@@ -114,6 +108,7 @@ function setupMovimentacaoForm() {
 
         await saveMovimentacao({
             placa_veiculo: placa,
+            modelo_veiculo: v.modelo || 'Sem Modelo',
             motorista: document.getElementById('mov-motorista').value,
             tipo: document.getElementById('mov-tipo').value,
             data_hora: new Date(document.getElementById('mov-data-hora').value).toISOString(),
@@ -126,14 +121,13 @@ function setupMovimentacaoForm() {
     };
 }
 
-// 4. DASHBOARD (STATUS DA FROTA)
+// 4. DASHBOARD
 async function loadVeiculosList() {
     const vs = await getAllVeiculos();
     const dash = document.getElementById('movimentacoes-list');
-    const cadList = document.getElementById('delete-veiculo-list');
     if(!dash) return;
 
-    const html = vs.map(v => {
+    dash.innerHTML = vs.map(v => {
         const troca = (v.km_atual - v.km_ultima_troca) >= 10000;
         return `
         <div class="card" style="border-left:5px solid ${troca ? 'red' : 'green'};">
@@ -150,14 +144,11 @@ async function loadVeiculosList() {
             </div>
         </div>`;
     }).join('');
-    
-    dash.innerHTML = html || '<p>Nenhum veículo cadastrado.</p>';
-    if(cadList) cadList.innerHTML = dash.innerHTML;
 }
 
 window.delV = async (p) => { if(confirm("Excluir Viatura?")) { await deleteVeiculo(p); loadVeiculosList(); } };
 
-// 5. RELATÓRIOS E EXPORTAÇÃO
+// 5. HISTÓRICO E PDF (REVISADO)
 function setupHistorico() {
     document.getElementById('btn-buscar-auditoria').onclick = renderizarHistorico;
     document.getElementById('btn-export-pdf').onclick = gerarPDF;
@@ -172,7 +163,7 @@ async function renderizarHistorico() {
 
     let movs = await getAllMovimentacoes();
     movs = movs.filter(m => {
-        const d = m.data_hora.split('T')[0];
+        const d = m.data_hora.split('T')[0]; // Pega apenas a data YYYY-MM-DD
         if (placa && m.placa_veiculo !== placa) return false;
         if (inicio && d < inicio) return false;
         if (fim && d > fim) return false;
@@ -189,16 +180,66 @@ async function renderizarHistorico() {
     `).join('');
 }
 
-window.delMov = async (id) => { if(confirm("Remover registro?")) { await deleteMovimentacaoById(id); renderizarHistorico(); } };
-
 async function gerarPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    const movs = await getAllMovimentacoes();
-    doc.text("Relatório JSCAR", 14, 15);
-    const rows = movs.map(m => [new Date(m.data_hora).toLocaleString(), m.placa_veiculo, m.tipo, m.motorista, m.km_atual]);
-    doc.autoTable({ head: [['Data', 'Placa', 'Tipo', 'Motorista', 'KM']], body: rows, startY: 20 });
-    doc.save("Relatorio_JSCAR.pdf");
+    let movs = await getAllMovimentacoes();
+    
+    // Filtros da tela para o PDF
+    const inicio = document.getElementById('filtro-data-inicio').value;
+    const fim = document.getElementById('filtro-data-fim').value;
+    const placaFiltro = document.getElementById('filtro-veiculo').value;
+
+    movs = movs.filter(m => {
+        const d = m.data_hora.split('T')[0];
+        if (placaFiltro && m.placa_veiculo !== placaFiltro) return false;
+        if (inicio && d < inicio) return false;
+        if (fim && d > fim) return false;
+        return true;
+    }).sort((a,b) => new Date(a.data_hora) - new Date(b.data_hora));
+
+    const tituloData = inicio ? new Date(inicio).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text(`Relatório Diário - ${tituloData}`, 105, 20, { align: "center" });
+
+    let yPos = 35;
+    const veiculosUnicos = [...new Set(movs.map(m => m.placa_veiculo))];
+
+    veiculosUnicos.forEach(placa => {
+        const movsVeiculo = movs.filter(m => m.placa_veiculo === placa);
+        const modelo = movsVeiculo[0].modelo_veiculo || "---";
+
+        if (yPos > 240) { doc.addPage(); yPos = 20; }
+
+        // Desenha a Moldura da Viatura (Box)
+        doc.setDrawColor(0);
+        doc.rect(14, yPos, 182, 10); 
+        doc.setFontSize(12);
+        doc.text(`Viatura: ${placa} - ${modelo}`, 18, yPos + 7);
+        yPos += 10;
+
+        const rows = movsVeiculo.map(m => [
+            m.tipo.toUpperCase(),
+            new Date(m.data_hora).toLocaleTimeString('pt-BR'),
+            m.motorista,
+            m.km_atual || "---"
+        ]);
+
+        doc.autoTable({
+            startY: yPos,
+            head: [['Tipo', 'Hora', 'Motorista', 'KM']],
+            body: rows,
+            theme: 'grid',
+            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 10, cellPadding: 3 },
+            margin: { left: 14, right: 14 }
+        });
+
+        yPos = doc.lastAutoTable.finalY + 15;
+    });
+
+    doc.save(`Relatorio_JSCAR.pdf`);
 }
 
 async function gerarExcel() {
